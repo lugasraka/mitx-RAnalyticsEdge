@@ -1,0 +1,156 @@
+---
+title: "Mitx-week8"
+author: "Raka"
+date: "11/11/2020"
+output: html_document
+---
+
+## Investment Decision: Task 1
+
+Suppose that, last year, you purchased 150 shares of eight different stocks (for a total of 1200 shares). The spreadsheet Investment.ods for LibreOffice or OpenOffice, and Investment.xlsx for Microsoft Excel, lists the stocks that you purchased, the price you purchased them for last year, the current price, and the price estimate for next year.
+
+If you sell any shares, you have to pay a transaction cost of 1% of the amount transacted.
+
+In addition, you must pay a capital-gains tax at the rate of 30% on any capital gains at the time of the sale. For example, suppose that you sell 100 shares of a stock today at $50 per share, which you originally purchased for $30 per share. You would receive $5,000. However, you would have to pay capital-gains taxes of:
+
+0.30×($5,000−$3,000)=$600,
+
+and you would have to pay:
+
+0.01×$5,000=$50
+
+in transaction costs. Therefore, by selling 100 shares of this stock, you would have a net cashflow of
+
+$5,000−$600−$50=$4,350.
+
+Note that none of the stocks decreased in value since the time of purchase, so we don't have to deal with capital losses.
+
+You would like to sell enough shares of stock today to generate $10,000 to use as part of a down payment on a new home. You need to decide how many shares of which stocks to sell in order to generate $10,000, after taxes and transaction costs, while maximizing the estimated value of your stock portfolio next year. Let's formulate this as a linear optimization problem.
+
+How many decision variables should your model have?
+
+Ans: 8
+
+# Formulating the problem
+
+We'll assume for this problem that you can't sell more shares of stock than you own, and you can't buy additional shares. What is the maximum value your decision variables can be? 
+
+Ans: 150 and 0 (minimum)
+
+# Formulating the problem 2
+
+Your objective is to maximize the estimated value of your stock portfolio next year. To do this, you should sum the estimated value of each stock next year. Suppose you sell x shares of your stock in Microsoft. What is the estimated value of your Microsoft stock next year?
+
+Ans: 34.55 x (150 -x)
+
+# Formulating the problem 3
+
+You need to make sure you get $10,000 in cash from selling your stocks, after taxes and transaction costs. How much would you get in cash, after taxes and transaction costs, if you sell 50 shares of your Intel stock?
+
+Ans: 1154.715
+
+# Analyzing solutions
+
+In the optimal solution, which stocks do you sell at least one share of? Select all that apply.
+
+Ans: Yahoo, Microsoft, Intel
+
+# Analyzing solutions
+
+What is the objective value of the optimal solution (the estimated value of your portfolio of stocks next year)?
+
+Ans: 26773.66271
+
+# Analyzing solutions
+
+How many shares of stock in total should you sell to make sure you have enough cash, according to the optimal solution? (Assume that you can sell fractional shares.)
+
+Ans: 367.7232981
+
+# Adjusting the formulation
+
+As an invester, you like having a portfolio of eight different stocks because it diversifies your investment. If one or two stocks do poorly this year, you won't worry as much because you have many other stocks. In the optimal solution for this problem, you sold all of your shares of some stocks, but you would like to keep at least half of the shares of each of your stocks.
+
+Adjust the formulation so that you sell no more than 75 shares of each stock, and solve it again.
+
+In the optimal solution, you sell at least one share of which of your stocks? Select all that apply.
+
+Ans: Yahoo, GE, Microsoft, Cisco, Intel, Pfizer
+
+The value: 26468.54116
+
+# Adjusting again
+
+Even though your investment is worth a bit less next year by diversifying, you expect this diversification to help you long term.
+
+However, you notice that you expect the Yahoo! stock to decrease in value next year. So, while you would like to sell no more than 75 shares of your other stocks, you would like to sell exactly 100 shares of your Yahoo! stock. Adjust your formulation in LibreOffice again, and re-solve to get the new optimal solution.
+
+You now sell at least one share of how many different stocks?
+
+Ans: 5 Stocks, with value = 26507.52535
+
+## Task 2: Optimization problem of Filatoi Riuniti
+
+The objective is to minimize costs. The prices charged by the six local mills for production, as well as the production cost at Filatoi Riuniti, are provided in the spreadsheet. Additionally, the yarn that is spun by the six local mills needs to be transported. The transportation costs per kg of yarn are also provided in the spreadsheet.
+
+Our model has two types of constraints: capacity constraints and demand constraints. The spreadsheet contains a table showing the production capacity and production rate per product for each of the mills (including Filatoi Riuniti). For example, at the Bresciani mill, it takes 0.70 hours to produce one kg of extra fine yarn, and there are a total of 3,000 machines hours per month available at this mill. There is also a table that estimates the demand for the four yarn sizes in the current month. We should produce at least the demand for each yarn type.
+
+Formulate and solve this problem in LibreOffice (or in the spreadsheet software you are using). The objective should minimize the sum of the production and transportation costs. You should have the following constraints: non-negative decision variables, a capacity constraint for each mill, and a demand constraint for each type of yarn. Remember that Ambrosi and De Blasi can't produce extra fine yarn, so you should also account for this.
+
+What is the objective value of the solution?
+
+Ans: 1382544.334
+
+# How many kg of medium yarn is outsourced?
+
+Ans: 9182.982595
+
+# How many kg of fine yarn is outsourced?
+
+Ans: 6250
+
+# At which mills does Filatoi use the maximum capacity available? Select all that apply.
+
+Ans: Every mill except De Blasi
+
+# Sensitivity ANalysis 1
+
+Ans: No, don't rent
+
+# Sensitivity Analysis2
+
+Ans: Yes, rent
+
+# Sensitivity Analysis 3
+
+Suppose that the shadow price of the medium yarn demand constraint is $12.30, with an allowable increase of 5388. Recall that the shadow price is the amount that the objective increases per unit increase in the right hand side of the constraint. So a shadow price of $12.30 for the medium yarn demand constraint means that the cost increases by $12.30 for every unit increase in the medium yarn demand. The allowable increase of 5388 means that this shadow price hold up to an increase of 5388 in the right hand side of this constraint. If we increase the right hand side by more than 5388, the shadow price will change, and it is impossible to know how it changes without re-solving the model.
+
+A new client is interested in purchasing up to 5,000 kg/month of medium size yarn. What is the minimum price per kg of yarn that Filatoi Riuniti should quote to this new client? (In answering this question, assume that Filatoi has not decided to increase its spinning machine capacity, and that Filatoi does not want to change the prices that they currently charge their existing clients.)
+Ans: 12.3
+
+# Sensitivity Analysis 4
+
+Now suppose that the client wants to purchase 6,000 kg/month of medium size yarn. Now what is the minimum price per kg of yarn that Filatoi Riuniti should quote to this new client? (In answering this question, assume that Filatoi has not decided to increase its spinning machine capacity, and that Filatoi does not want to change the prices that they currently charge their existing clients.)
+
+Ans: 12.44892473
+
+# Data Estimates
+
+In many situations, the problem data is estimated but is not known for sure. In this problem, the optimization model is based in part on the prices charged by the local mills to Filatoi Riuniti and on an estimate of Filatoi Riuniti's internal production costs. The plant manager, the accounting department, and you estimate that Filatoi Riuniti's internal production costs could vary within a 5% range of the numbers given.
+
+If Filatoi Riuniti's production costs increase by 5%, by how much does the objective value of the solution change? You should adjust and re-optimize the model to answer this question.
+
+Ans: 48924.49062
+
+# Data Estimates 2
+
+If Filatoi Riuniti's production costs decrease by 5%, by how much does the objective value of the solution change (in absolute difference)? You should adjust and re-optimize the model to answer this question.
+
+Ans: same as above = 48924.49062
+
+# Data Estimates 3
+
+Now you think that the production capacity of one of your local mills, De Blasi, could vary within a 20% range of the estimated value. In the current solution, De Blasi produces 2040.125 kg of medium yarn, and none of the other types of yarn. If De Blasi's capacity is actually 20% higher or lower than the estimated value, will the solution change? HINT: Think about De Blasi's capacity constraint.
+
+Ans: No. Nothing changes
+
