@@ -8,3 +8,7 @@ There are reading materials and videos, including Rmarkdown files for the recita
 If you have any trouble accessing or reproducing the results, don't hesitate to ping me.
 
 -LRA
+
+# Example
+Here is a screenshot of what you can find in this repo
+![markdown example]
