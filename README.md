@@ -10,5 +10,7 @@ If you have any trouble accessing or reproducing the results, don't hesitate to 
 -LRA
 
 # Example
-Here is a screenshot of what you can find in this repo
+Here is a screenshot of what you can find in this repo.
+Also accessible here https://rpubs.com/lugasraka
+
 ![markdown example](https://github.com/lugasraka/mitx-RAnalyticsEdge/blob/main/Screenshot-Edge2020.png)
