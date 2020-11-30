@@ -1,0 +1,566 @@
+---
+title: "MITxweek-7"
+author: "Raka"
+date: "11/9/2020"
+output: html_document
+---
+
+## Task 1: Election Forecasting Revisited
+
+n this homework problem, we'll revisit our logistic regression model from Unit 3, and learn how to plot the output on a map of the United States. Unlike what we did in the Crime lecture, this time we'll be plotting predictions rather than data!
+
+First, load the ggplot2, maps, and ggmap packages using the library function. All three packages should be installed on your computer from lecture, but if not, you may need to install them too using the install.packages function.
+
+Then, load the US map and save it to the variable statesMap, like we did during the Crime lecture:
+
+statesMap = map_data("state")
+
+The maps package contains other built-in maps, including a US county map, a world map, and maps for France and Italy.
+
+```{r loadinglib}
+library(ggplot2)
+library(maps)
+library(ggmap)
+```
+
+If you look at the structure of the statesMap data frame using the str function, you should see that there are 6 variables. One of the variables, group, defines the different shapes or polygons on the map. Sometimes a state may have multiple groups, for example, if it includes islands. How many different groups are there? 
+
+```{r}
+statesMap <- map_data("state")
+str(statesMap)
+
+table(statesMap$group)
+```
+
+# Maps of the US
+
+You can draw a map of the United States by typing the following in your R console:
+
+ggplot(statesMap, aes(x = long, y = lat, group = group)) + geom_polygon(fill = "white", color = "black")
+
+We specified two colors in geom_polygon -- fill and color. Which one defined the color of the outline of the states?
+
+```{r}
+ggplot(statesMap, aes(x = long, y = lat, group = group)) + geom_polygon(fill = "white", color = "black")
+```
+
+# Coloring the states by Predictions
+
+Load the data using the read.csv function, and call it "polling". Then split the data using the subset function into a training set called "Train" that has observations from 2004 and 2008, and a testing set called "Test" that has observations from 2012.
+
+Note that we only have 45 states in our testing set, since we are missing observations for Alaska, Delaware, Alabama, Wyoming, and Vermont, so these states will not appear colored in our map.
+
+Then, create a logistic regression model and make predictions on the test set using the following commands:
+
+mod2 = glm(Republican~SurveyUSA+DiffCount, data=Train, family="binomial")
+
+TestPrediction = predict(mod2, newdata=Test, type="response")
+
+TestPrediction gives the predicted probabilities for each state, but let's also create a vector of Republican/Democrat predictions by using the following command:
+
+TestPredictionBinary = as.numeric(TestPrediction > 0.5)
+
+Now, put the predictions and state labels in a data.frame so that we can use ggplot:
+
+predictionDataFrame = data.frame(TestPrediction, TestPredictionBinary, Test$State)
+
+To make sure everything went smoothly, answer the following questions.
+
+For how many states is our binary prediction 1 (for 2012), corresponding to Republican?
+
+```{r}
+polling <- read.csv("PollingImputed.csv")
+
+Train <- subset(polling, Year <= 2008)
+Test <- subset(polling, Year > 2008)
+
+mod2 <- glm(Republican~SurveyUSA+DiffCount, data=Train, family="binomial")
+TestPrediction <-  predict(mod2, newdata=Test, type="response")
+
+TestPredictionBinary <- as.numeric(TestPrediction > 0.5)
+
+table(TestPredictionBinary)
+mean(TestPrediction)
+```
+
+# Coloring the states
+
+Now, we need to merge "predictionDataFrame" with the map data "statesMap", like we did in lecture. Before doing so, we need to convert the Test.State variable to lowercase, so that it matches the region variable in statesMap. Do this by typing the following in your R console:
+
+predictionDataFrame$region = tolower(predictionDataFrame$Test.State)
+
+Now, merge the two data frames using the following command:
+
+predictionMap = merge(statesMap, predictionDataFrame, by = "region")
+
+Lastly, we need to make sure the observations are in order so that the map is drawn properly, by typing the following:
+
+predictionMap = predictionMap[order(predictionMap$order),]
+
+How many observations are there in predictionMap?
+
+```{r}
+predictionDataFrame <- Test
+predictionDataFrame$region <- tolower(predictionDataFrame$State)
+predictionDataFrame$Predicted <- TestPredictionBinary
+
+predictionDataFrame$Predicted_Val <- TestPrediction
+
+View(predictionDataFrame)
+
+# Merging the data
+predictionMap <- merge(statesMap, predictionDataFrame, by = "region")
+
+#make sure everything's in order
+predictionMap <- predictionMap[order(predictionMap$order),]
+```
+
+# Coloring the staets by predictions
+
+Now we are ready to color the US map with our predictions! You can color the states according to our binary predictions by typing the following in your R console:
+
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPredictionBinary)) + geom_polygon(color = "black")
+
+The states appear light blue and dark blue in this map. Which color represents a Republican prediction?
+
+```{r}
+
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = Predicted)) + geom_polygon(color = "black")
+
+```
+# Coloring the outcomes: discrete numbers
+
+We see that the legend displays a blue gradient for outcomes between 0 and 1. However, when plotting the binary predictions there are only two possible outcomes: 0 or 1. Let's replot the map with discrete outcomes. We can also change the color scheme to blue and red, to match the blue color associated with the Democratic Party in the US and the red color associated with the Republican Party in the US. This can be done with the following command:
+
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = TestPredictionBinary))+ geom_polygon(color = "black") + scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+
+Alternatively, we could plot the probabilities instead of the binary predictions. Change the plot command above to instead color the states by the variable TestPrediction. You should see a gradient of colors ranging from red to blue. Do the colors of the states in the map for TestPrediction look different from the colors of the states in the map with TestPredictionBinary? Why or why not?
+
+NOTE: If you have a hard time seeing the red/blue gradient, feel free to change the color scheme, by changing the arguments low = "blue" and high = "red" to colors of your choice (to see all of the color options in R, type colors() in your R console). You can even change it to a gray scale, by changing the low and high colors to "gray" and "black".
+
+```{r}
+
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = Predicted))+
+  geom_polygon(color = "black") + 
+  scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+```
+Or...
+
+```{r}
+
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = Predicted_Val))+
+  geom_polygon(color = "black") + 
+  scale_fill_gradient(low = "gray", high = "black", guide = "legend", name = "Prediction 2012")
+```
+
+# Parameter settings
+
+In this part, we'll explore what the different parameter settings of geom_polygon do. Throughout the problem, use the help page for geom_polygon, which can be accessed by ?geom_polygon. To see more information about a certain parameter, just type a question mark and then the parameter name to get the help page for that parameter. Experiment with different parameter settings to try and replicate the plots!
+
+We'll be asking questions about the following three plots:
+
+```{r}
+
+#Plot 1 -- dashed
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = Predicted))+
+  geom_polygon(color = "black", linetype = 2) + 
+  scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+
+#Plot 2-- bold lines
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = Predicted))+
+  geom_polygon(color = "black", size = 2) + 
+  scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+
+#Plot3-- opacity
+ggplot(predictionMap, aes(x = long, y = lat, group = group, fill = Predicted))+
+  geom_polygon(color = "black", alpha = 0.3) + 
+  scale_fill_gradient(low = "blue", high = "red", guide = "legend", breaks= c(0,1), labels = c("Democrat", "Republican"), name = "Prediction 2012")
+
+
+```
+
+## Task 2: Visualizing Network Data
+
+The cliche goes that the world is an increasingly interconnected place, and the connections between different entities are often best represented with a graph. Graphs are comprised of vertices (also often called "nodes") and edges connecting those nodes. In this assignment, we will learn how to visualize networks using the igraph package in R.
+
+For this assignment, we will visualize social networking data using anonymized data from Facebook; this data was originally curated in a recent paper about computing social circles in social networks. In our visualizations, the vertices in our network will represent Facebook users and the edges will represent these users being Facebook friends with each other.
+
+The first file we will use, edges.csv, contains variables V1 and V2, which label the endpoints of edges in our network. Each row represents a pair of users in our graph who are Facebook friends. For a pair of friends A and B, edges.csv will only contain a single row -- the smaller identifier will be listed first in this row. From this row, we will know that A is friends with B and B is friends with A.
+
+The second file, users.csv, contains information about the Facebook users, who are the vertices in our network. This file contains the following variables:
+
+```{r}
+edges <- read.csv("edges.csv")
+users <- read.csv("users.csv")
+
+nrow(edges)*2/nrow(users)
+
+table(users$locale)
+table(users$gender, users$school)
+```
+
+# Creating a network
+
+We will be using the igraph package to visualize networks; install and load this package using the install.packages and library commands.
+
+We can create a new graph object using the graph.data.frame() function. Based on ?graph.data.frame, which of the following commands will create a graph g describing our social network, with the attributes of each user correctly loaded?
+
+Note: A directed graph is one where the edges only go one way -- they point from one vertex to another. The other option is an undirected graph, which means that the relations between the vertices are symmetric. 
+
+```{r}
+library(igraph)
+
+g <- graph.data.frame(edges, FALSE, users)
+```
+
+# Creating networks
+
+Use the correct command from Problem 2.1 to load the graph g.
+
+Now, we want to plot our graph. By default, the vertices are large and have text labels of a user's identifier. Because this would clutter the output, we will plot with no text labels and smaller vertices:
+
+plot(g, vertex.size=5, vertex.label=NA)
+
+In this graph, there are a number of groups of nodes where all the nodes in each group are connected but the groups are disjoint from one another, forming "islands" in the graph. Such groups are called "connected components," or "components" for short. How many connected components with at least 2 nodes are there in the graph?
+
+```{r}
+
+plot(g, vertex.size = 5, vertex.label = NA)
+```
+In our graph, the "degree" of a node is its number of friends. We have already seen that some nodes in our graph have degree 0 (these are the nodes with no friends), while others have much higher degree. We can use degree(g) to compute the degree of all the nodes in our graph g.
+
+How many users are friends with 10 or more other Facebook users in this network?
+
+```{r}
+degree(g)
+
+class(degree(g))
+table(degree(g))
+```
+
+# modifying network elements
+
+In a network, it's often visually useful to draw attention to "important" nodes in the network. While this might mean different things in different contexts, in a social network we might consider a user with a large number of friends to be an important user. From the previous problem, we know this is the same as saying that nodes with a high degree are important users.
+
+To visually draw attention to these nodes, we will change the size of the vertices so the vertices with high degrees are larger. To do this, we will change the "size" attribute of the vertices of our graph to be an increasing function of their degrees:
+
+V(g)$size = degree(g)/2+2
+
+Now that we have specified the vertex size of each vertex, we will no longer use the vertex.size parameter when we plot our graph:
+
+plot(g, vertex.label=NA)
+
+```{r}
+V(g)$size = degree(g)/2+2
+plot(g, vertex.label=NA)
+
+V(g)
+
+max(V(g)$size)
+min(V(g)$size)
+
+```
+
+# Coloring vertices
+
+Thus far, we have changed the "size" attributes of our vertices. However, we can also change the colors of vertices to capture additional information about the Facebook users we are depicting.
+
+When changing the size of nodes, we first obtained the vertices of our graph with V(g) and then accessed the the size attribute with V(g)$size. To change the color, we will update the attribute V(g)$color.
+
+To color the vertices based on the gender of the user, we will need access to that variable. When we created our graph g, we provided it with the data frame users, which had variables gender, school, and locale. These are now stored as attributes V(g)$gender, V(g)$school, and V(g)$locale.
+
+We can update the colors by setting the color to black for all vertices, than setting it to red for the vertices with gender A and setting it to gray for the vertices with gender B:
+
+V(g)$color = "black"
+
+V(g)$color[V(g)$gender == "A"] = "red"
+
+V(g)$color[V(g)$gender == "B"] = "gray"
+
+Plot the resulting graph. What is the gender of the users with the highest degree in the graph?
+
+```{r}
+
+V(g)$color <-  "black"
+
+V(g)$color[V(g)$gender == "A"] <-  "red"
+
+V(g)$color[V(g)$gender == "B"] <-  "gray"
+
+plot(g, vertex.label=NA)
+```
+
+Now, color the vertices based on the school that each user in our network attended.
+
+Are the two users who attended both schools A and B Facebook friends with each other?
+
+```{r}
+
+V(g)$color <-  "black"
+
+V(g)$color[V(g)$school == "A"] <-  "red"
+
+V(g)$color[V(g)$school == "AB"] <-  "blue"
+
+plot(g, vertex.label=NA)
+```
+
+Now, color the vertices based on the locale of the user.
+
+The large connected component is most associated with which locale?
+
+```{r}
+V(g)$color <-  "black"
+
+V(g)$color[V(g)$locale == "A"] <-  "red"
+
+V(g)$color[V(g)$locale == "B"] <-  "blue"
+
+plot(g, vertex.label=NA)
+```
+
+## Task 3: Word CLOUDS :))
+
+Earlier in the course, we used text analytics as a predictive tool, using word frequencies as independent variables in our models. However, sometimes our goal is to understand commonly occurring topics in text data instead of to predict the value of some dependent variable. In such cases, word clouds can be a visually appealing way to display the most frequent words in a body of text.
+
+A word cloud arranges the most common words in some text, using size to indicate the frequency of a word. For instance, this is a word cloud for the complete works of Shakespeare, removing English stopwords:
+
+```{r}
+library(tm)
+
+tweets <- read.csv("tweets.csv", stringsAsFactors = FALSE)
+corpus <- Corpus(VectorSource(tweets$Tweet))
+
+corpus <- tm_map(corpus, content_transformer(tolower))
+
+corpus <- tm_map(corpus, removePunctuation)
+
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+
+dtm <- DocumentTermMatrix(corpus)
+
+allTweets <- as.data.frame(as.matrix(dtm))
+dtm
+```
+
+# Building Word Clouds
+
+Install and load the "wordcloud" package, which is needed to build word clouds.
+
+As we can read from ?wordcloud, we will need to provide the function with a vector of words and a vector of word frequencies. Which function can we apply to allTweets to get a vector of the words in our dataset, which we'll pass as the first argument to wordcloud()?
+
+```{r}
+library(wordcloud)
+colSums(allTweets)
+```
+
+# Building a word cloud
+
+Use allTweets to build a word cloud. Make sure to check out the help page for wordcloud if you are not sure how to do this.
+
+Because we are plotting a large number of words, you might get warnings that some of the words could not be fit on the page and were therefore not plotted -- this is especially likely if you are using a smaller screen. You can address these warnings by plotting the words smaller. From ?wordcloud, we can see that the "scale" parameter controls the sizes of the plotted words. By default, the sizes range from 4 for the most frequent words to 0.5 for the least frequent, as denoted by the parameter "scale=c(4, 0.5)". We could obtain a much smaller plot with, for instance, parameter "scale=c(2, 0.25)".
+
+What is the most common word across all the tweets (it will be the largest in the outputted word cloud)? Please type the word exactly how you see it in the word cloud. The most frequent word might not be printed if you got a warning about words being cut off -- if this happened, be sure to follow the instructions in the paragraph above. 
+
+```{r}
+
+wordcloud(words = colnames(allTweets), freq = colSums(allTweets))
+```
+
+# with new corpus #2
+
+In the previous subproblem, we noted that there is one word with a much higher frequency than the other words. Repeat the steps to load and pre-process the corpus, this time removing the most frequent word in addition to all elements of stopwords("english") in the call to tm_map with removeWords. For a refresher on how to remove this additional word, see the Twitter text analytics lecture.
+
+Replace allTweets with the document-term matrix of this new corpus -- we will use this updated corpus for the remainder of the assignment.
+
+Create a word cloud with the updated corpus. What is the most common word in this new corpus (the largest word in the outputted word cloud)? The most frequent word might not be printed if you got a warning about words being cut off -- if this happened, be sure to follow the instructions in the previous problem.
+
+```{r}
+
+corpus2 <- Corpus(VectorSource(tweets$Tweet))
+
+corpus2 <- tm_map(corpus2, content_transformer(tolower))
+
+corpus2 <- tm_map(corpus2, removePunctuation)
+
+corpus2 <- tm_map(corpus2, removeWords, c("apple",stopwords("english")))
+
+dtm2 <- DocumentTermMatrix(corpus2)
+
+allTweets2 <- as.data.frame(as.matrix(dtm2))
+
+wordcloud(words = colnames(allTweets2), freq = colSums(allTweets2), scale = c(2,0.25))
+```
+
+# Selecting color palette -> Rcolorbrewer
+
+The use of a palette of colors can often improve the overall effect of a visualization. We can easily select our own colors when plotting; for instance, we could pass c("red", "green", "blue") as the colors parameter to wordcloud(). The RColorBrewer package, which is based on the ColorBrewer project (colorbrewer.org), provides pre-selected palettes that can lead to more visually appealing images. Though these palettes are designed specifically for coloring maps, we can also use them in our word clouds and other visualizations.
+
+Begin by installing and loading the "RColorBrewer" package. This package may have already been installed and loaded when you installed and loaded the "wordcloud" package, in which case you don't need to go through this additional installation step. If you obtain errors (for instance, "Error: lazy-load database 'P' is corrupt") after installing and loading the RColorBrewer package and running some of the commands, try closing and re-opening R.
+
+The function brewer.pal() returns color palettes from the ColorBrewer project when provided with appropriate parameters, and the function display.brewer.all() displays the palettes we can choose from.
+
+Which color palette would be most appropriate for use in a word cloud for which we want to use color to indicate word frequency?
+
+```{r}
+library(RColorBrewer)
+
+display.brewer.all()
+
+wordcloud(words = colnames(allTweets2), freq = colSums(allTweets2), scale = c(2,0.25),
+          min.freq = 10, random.order = FALSE,
+          colors = brewer.pal(9, "YlOrRd")[-1:-4])
+```
+
+## Task 4 : Bonus, visualizing parole
+
+
+Using the read.csv function, load the dataset parole.csv and call it parole. Since male, state, and crime are all unordered factors, convert them to factor variables using the following commands:
+
+parole$male = as.factor(parole$male)
+
+parole$state = as.factor(parole$state)
+
+parole$crime = as.factor(parole$crime)
+
+What fraction of parole violators are female?
+
+```{r}
+parole <- read.csv("parole.csv")
+parole$male = as.factor(parole$male)
+
+parole$state = as.factor(parole$state)
+
+parole$crime = as.factor(parole$crime)
+
+str(parole)
+table(parole$male)
+table(parole$male, parole$violator)
+
+130/675
+130/nrow(parole)
+14/78
+```
+
+# Crime in state = 2, subset
+
+```{r}
+kentucky <- subset(parole, state == 2)
+View(kentucky)
+table(kentucky$crime)
+```
+
+# Creating basic histograms
+
+Recall from lecture that in ggplot, we need to specify the dataset, the aesthetic, and the geometry. To create a histogram, the geometry will be geom_histogram. The data we'll use is parole, and the aesthetic will be the map from a variable to the x-axis of the histogram.
+
+Create a histogram to find out the distribution of the age of parolees, by typing the following command in your R console (you might need to load the ggplot2 package first by typing library(ggplot2) in your R console):
+
+ggplot(data = parole, aes(x = age)) + geom_histogram(binwidth = 5, boundary = 0, color = 'black', fill = 'cornflowerblue')
+
+What is the age bracket with the most parolees?
+
+```{r}
+
+ggplot(data = parole, aes(x = age)) + 
+  geom_histogram(binwidth = 5, boundary = 0, color = 'black', fill = 'cornflowerblue')
+```
+ Redo
+ 
+```{r}
+
+ggplot(data = parole, aes(x = age)) + 
+  geom_histogram(binwidth = 5, boundary = 0, color = 'blue', fill = 'cornflowerblue')
+```
+ 
+# Adding another dimension
+
+Now suppose we are interested in seeing how the age distribution of male parolees compares to the age distribution of female parolees.
+
+One option would be to create a heatmap with age on one axis and male (a binary variable in our data set) on the other axis. Another option would be to stick with histograms, but to create a separate histogram for each gender. ggplot has the ability to do this automatically using the facet_grid command.
+
+To create separate histograms for male and female, type the following command into your R console:
+
+ggplot(data = parole, aes(x = age)) + geom_histogram(binwidth = 5, boundary = 0) + facet_grid(male ~ .)
+
+The histogram for female parolees is shown at the top, and the histogram for male parolees is shown at the bottom.
+
+What is the age bracket with the most female parolees?
+
+```{r}
+
+ggplot(data = parole, aes(x = age)) + 
+  geom_histogram(binwidth = 5, boundary = 0) + facet_grid(male ~ .)
+
+```
+Redo
+
+Now change the facet_grid argument to be ".~male" instead of "male~.". What does this do?
+
+```{r}
+
+ggplot(data = parole, aes(x = age)) + 
+  geom_histogram(binwidth = 5, boundary = 0) + facet_grid(.~ male)
+```
+
+# Adding another Dimension
+
+An alternative to faceting is to simply color the different groups differently. To color the data points by group, we need to tell ggplot that a property of the data (male or not male) should be translated to an aesthetic property of the histogram. We can do this by setting the fill parameter within the aesthetic to male.
+
+Run the following command in your R console to produce a histogram where data points are colored by group:
+
+ggplot(data = parole, aes(x = age, fill = male)) + geom_histogram(binwidth = 5, boundary = 0)
+
+Since we didn't specify colors to use, ggplot will use its default color selection. Let's change this by defining our own color palette. First, type in your R console:
+
+colorPalette = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+This is actually a colorblind-friendly palette, desribed on this Cookbook for R page . Now, generate your histogram again, using colorPalette, with the following command:
+
+ggplot(data = parole, aes(x = age, fill = male)) + geom_histogram(binwidth = 5, boundary = 0) + scale_fill_manual(values=colorPalette)
+
+What color is the histogram for the female parolees?
+
+```{r}
+
+ggplot(data = parole, aes(x = age, fill = male)) + 
+  geom_histogram(binwidth = 5, boundary = 0)
+
+colorPalette = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+ggplot(data = parole, aes(x = age, fill = male)) + 
+  geom_histogram(binwidth = 5, boundary = 0) + scale_fill_manual(values=colorPalette)
+
+# dont stack them
+
+ggplot(data = parole, aes(x = age, fill = male)) + 
+  geom_histogram(binwidth = 5, boundary = 0, position = "identity", alpha = 0.5) + scale_fill_manual(values=colorPalette)
+```
+# TIme saved: another histogram
+
+Now let's explore another aspect of the data: the amount of time served by parolees. Create a basic histogram like the one we created in Problem 2, but this time with time.served on the x-axis. Set the bin width to one month.
+
+What is the most common length of time served, according to this histogram?
+
+```{r}
+
+ggplot(data = parole, aes(x = time.served)) + 
+  geom_histogram(binwidth = 1, boundary = 0, color = 'black', fill = 'cornflowerblue')
+
+# bin  = 0.1 month
+
+ggplot(data = parole, aes(x = time.served)) + 
+  geom_histogram(binwidth = 0.1, boundary = 0, color = 'black', fill = 'cornflowerblue')
+```
+# faceting with type of crime
+
+```{r}
+ggplot(data = parole, aes(x = time.served)) + 
+  geom_histogram(binwidth = 1, boundary = 0) + facet_grid(.~ crime)
+
+# when we overlay them
+ggplot(data = parole, aes(x = time.served, fill = crime)) + 
+  geom_histogram(binwidth = 1, boundary = 0, position = "identity", alpha = 0.5) + scale_fill_manual(values=colorPalette)
+
+```
+
