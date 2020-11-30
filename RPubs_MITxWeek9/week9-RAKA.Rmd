@@ -1,0 +1,270 @@
+---
+title: "week9-raka"
+author: "Raka"
+date: "11/23/2020"
+output: html_document
+---
+
+## Task 1: Selecting Profitable Hotel Sites
+
+Hotel chain owners who can pick good sites quickly have a distinct competitive advantage, since they are competing against other chains for the same sites. La Quinta used data on 57 existing inn locations to build a linear regression model to predict "Profitability", computed as the operating margin, or earnings before interest and taxes divided by total revenue. They tried many independent variables, such as "Number of hotel rooms in the vicinity" and "Age of the Inn". All independent variables were normalized to have mean zero and standard deviation 1. 
+
+The final regression model is given by:
+
+Profitability = 39.05 - 5.41*(State Population per Inn) + 5.86*(Price of the Inn) - 3.09*(Square Root of the Median Income of the Area) + 1.75*(College Students in the Area)
+
+The R2 of the model is 0.51.
+
+```{r}
+Profitability <- 39.05 - 5.41*(-1) + 5.86*(-0.3) - 3.09*(-0.81) + 1.75*(-0.54)
+Profitability
+```
+
+# Selecting the most profitable hotels
+
+In your spreadsheet, compute the predicted profitability for all hotels.
+
+Which hotel has the highest predicted profitability?
+
+Ans: Hotel 2
+
+# Selecting the most profitable 2
+
+Which hotel has the lowest predicted profitability?
+
+Ans: Hotel 8
+
+# Selecting the most profitable
+
+La Quinta has a budget of $10,000,000 to spend on hotels. Suppose we just used a "greedy" approach where we selected the most profitable hotels until we ran out of budget. So we would start by buying the hotel we predict to be the most profitable, and then if we had enough budget left, we would buy the hotel we predict to be the second most profitable, etc.
+
+How many hotels would we purchase with this approach?
+
+Ans: 1 only with a profit of 53.38
+
+# Optimization approach
+
+Now, build an optimization model in your spreadsheet to select hotels. The decision variables are whether or not a hotel is selected (binary variables). The objective is to maximize the total predicted profitability. We have two constraints: the decision variables should be binary, and the total cost should not exceed the budget of $10,000,000. Formulate and solve this model in LibreOffice.
+
+What is the objective value of the solution?
+
+Ans: 269.92
+
+# Optimization approach 2
+
+How many hotels are selected in the solution?
+
+Ans: 7
+
+# Optimization approach 3
+
+How many hotels located in South Lake Tahoe are selected in the solution?
+
+Ans: 6
+
+# Optimization approach 4
+
+La Quinta thinks that buying too many hotels in one city is probably not a good idea, and would prefer to diversify in other cities, even though it will decrease the sum of the predicted profitability. Add a constraint to limit the number of hotels selected in South Lake Tahoe to 2.
+
+What is the objective value of the solution now?
+
+Ans: 205.7
+
+# optimization approach 5
+
+How many hotels (in total) are selected in the solution now?
+
+Ans: 6
+
+# Optimization approach 6
+
+In which cities do we buy at least one hotel? Select all that apply.
+
+Ans: 
+Eureka
+Fresno
+Los Angeles
+South Lake Tahoe
+
+# Optimization approach 7
+
+In this problem, we compared the greedy approach with an optimization approach, and saw that the optimization approach was much better. This is true in many situations, but not always. In which of the following situations would the greedy approach perform as well as the optimization approach? Select all that apply.
+
+Ans:
+Instead of maximizing the sum of the profitability of the hotels we select, we wanted to maximize the average profitability of the hotels we select.
+Instead of having a budget constraint, we had a constraint on the number of different hotels we can select (for example, we want to maximize profitability given that we can only select 2 hotels). 
+
+## Task 2: Assigning Sales Regions at Pfizer Turkey
+
+Pfizer, Inc. is one of the world's largest pharmaceutical companies. It was founded in 1849, and aims to discover, develop, and manufacture breakthrough medicines. These medicines are marketed and sold in more than 150 countries. In this problem, we'll focus on the branch of Pfizer in Turkey. Pfizer's immediate customers in Turkey are medical doctors (MDs) because the majority of its products are prescription drugs. 
+
+Pfizer pharmaceutical sales representatives (SRs) provide MDs with supply samples and information on indications for drugs and potential adverse effects. To do this, they maintain close relationships with MDs through regular visits. Each SR is assigned a territory, which is a list of MDs to be visited by that SR. Territories are formed by combining smaller regions, called bricks. For each brick, we have information on the sales data, number of MDs, and MD profiles. This information is then used to compute an index value for each brick, which captures various factors to show the workload of the brick in terms of the number of SRs required for it. For example, if the index value is 0.5, then the workload is estimated to be half of a full time workload. 
+
+# Formulating the problem
+
+In Turkey, there are 1,000 bricks and 196 SRs. To reduce the problem size, we'll solve the problem for a single geographical district that has 22 bricks and 4 SRs.
+
+Since we want to assign each brick to an SR, we define a binary variable for each brick and SR pair. So we have binary decision variables xi,j, where xi,j is equal to 1 if brick j is assigned to SR i, and equal to 0 otherwise.
+
+How many decision variables are in our optimization problem? (Note that we are only solving the problem for the smaller geographical district.)
+
+Ans: 22 x 4 = 88
+
+# Formulating the problem 2
+
+Since the SRs have to visit the MDs in their offices, it is important to minimize the total distance traveled by the SRs. This is our objective. Each SR has an office in a certain brick, called their "center brick". We will compute the total distance traveled by an SR as the sum of the distances between the center brick and every other brick in that SR's territory.
+
+Let di,j denote the distance between the center brick for SR i and the (center of the) brick j. Given our decision variables xi,j, which of the following best describes our objective?
+
+Ans: Minimize the sum of di,j times the decision variables, summed over all i and j. 
+
+# Formulating the problem 2
+
+We have three main types of constraints. The first is that each brick must be assigned to exactly one SR. Which of the following constraints models this restriction for brick 1?
+
+Ans: x1,1+x2,1+x3,1+x4,1=1 correct
+
+# Formulating the problem 3
+
+The second main type of constraint tries to balance the workload between the SRs. The sum of the index values of the bricks of an SR correspond to his/her total workload and should be approximately 1. To model this, we'll constrain the workload of each SR to range between 0.8 and 1.2. Denote the index value of brick j by Ij. Which of the following constraints do we want to add to our model for SR 1?
+
+Ans: 0.8≤I1x1,1+I2x1,2+...+I22x1,22≤1.2
+
+# Formulating the problem 4
+
+The final set of constraints in our model constrains what we call "disruption", which is defined as the inclusion of new bricks in the territories of SRs. Suppose we have data Ni,j, which equals 1 if brick j is not currently assigned to SR i, and is equal to 0 if brick j is currently assigned to SR i. Which of the following constraints would force no more than 2 new bricks assigned to SR 1?
+
+Ans: 
+N1,1x1,1+N1,2x1,2+...+N1,22x1,22≤2 correct 
+
+# Solving the problem
+
+The file PfizerReps.ods for LibreOffice or OpenOffice, and PfizerReps.xlsx for Microsoft Excel contains the data needed to solve this problem (the current assignment of bricks to SRs, the index values, and the distances). Using this data, set up and solve the problem as formulated in Part 1 using LibreOffice.
+
+What is the optimal objective value?
+
+ans: 160.22
+
+# Solving the problem 2
+
+In the solution, brick 10 is assigned to which SR?
+
+Ans: 3
+
+# Solving the problem 3
+
+In the solution, how many new bricks does SR 2 have in her territory? (Note that we are not asking about total bricks here - just the number of bricks now assigned to SR 2 that were previously assigned to a different SR.)
+
+Ans: 1
+
+# Solving the problem 4
+
+In the solution, what is the total workload of SR 1? Remember that the sum of the index values of the bricks of an SR correspond to his/her total workload.
+
+Ans: 0.9206
+
+# Changing the restrictions
+
+In the current problem, we allow the workload of each SR to range from 0.8 to 1.2. In the optimal solution, the workload of the four SRs ranges from 0.837 to 1.1275. This is a pretty large range, and we would like to see if we can balance the workload a little better.
+
+In LibreOffice, change the constraints so that the workload for each SR must be between 0.9 and 1.1, and then resolve the problem.
+
+What is the new objective value?
+
+Ans: 172.84
+
+# Changing the restrictions
+
+Is this smaller or larger than the objective value in the original problem, and why?
+
+Ans: The objective value is larger than before. Since we are minimizing, the objective will increase with more restrictive constraints. 
+
+# Changing the restrictions cont.
+
+Now, keeping the workload constraints bounded between 0.9 and 1.1, increase the disruption bounds to 3 (meaning that each SR can have up to three new bricks assigned to them).
+
+What is the new objective value?
+
+Ans: 162.43
+
+# Changing the restrictions 4
+
+Suppose the head of logistics at Pfizer would like to find a solution with an objective value very similar to that of the original solution (the very first solution we found in this problem), but would like to decrease the disruption bounds to 1. What could he do to keep the objective value close to the original value (the very first objective function value we found)?
+
+Ans: Make the workload constraints less restrictive by changing the bounds to 0.7 and 1.3.
+correct 
+
+# Changing the restrictions 5
+
+Which restrictions or assumptions made in this problem could actually be relaxed to get a better solution (a solution that would minimize the distance traveled by the SRs)? Select all that apply.
+
+Ans: 
+The center brick of each SR could also be re-assigned to try and better center an SR in their territory.
+We could solve for a larger geographical area at once (more bricks and more SRs) so there are more possible assignments.
+We could assign a brick to more than one SR so they could share the workload. 
+
+## Task 3: Class Assignments in an Elementary School
+
+The Salanter Akiba Riverdale (SAR) Academy is a coeducational, private Modern Orthodox Jewish day school located in New York City. Every summer, the SAR Academy must create class assignments for their elementary school students. Each grade of 80-100 students must be divided into four different classes. Requests for assignments are made by parents, teachers, and school therapists. These requests include pairs of students that should be placed together, pairs of students that should not be placed together, and requests for students to be placed in classes that better suit their academic needs. These requests often conflict with each other, and it falls on the administration to prioritize which requests should be fullfilled over others. 
+
+In this exercise, we 'll solve a simplified version of the problem faced by the SAR Academy with 40 students. The full optimization problem is currently being used to assist administrators at the SAR Academy. 
+
+# Solving the basic problem
+
+The parents or guardians of each of the 40 students are asked to submit preferences for class 1 or class 2. These preferences often depend on the teaching style of the teachers, the teachers older siblings have had in the past, and characteristics of the class (one class is called an "inclusion class", which is better for students with academic needs). The parents give a ranking of 1 to the class they prefer (their first choice), and a ranking of 2 to their second choice. The data for this problem is in the spreadsheet ClassAssignments.ods for LibreOffice or OpenOffice, and ClassAssignments.xlsx for Microsoft Excel.
+
+Download this file, and then formulate and solve the basic assignment problem. The decision variables are very similar to those in the Pfizer Sales Representatives problem. We want to assign each student to either Class 1, or Class 2. Our objective is to adhere to the preferences of the parents as much as possible (note that since smaller numbers in the preferences are better, we will be minimizing in this problem). We have two types of constraints: (1) each student must be assigned to exactly one class, and (2) there should be exactly 20 students in each class.
+
+What is the optimal objective value?
+
+Ans: 42
+
+# Solving the basic problem 2
+
+How many students received their first choice class (according to the parent preferences)?
+
+Ans: 38
+
+# Solving the basic problem 3
+
+We would like to better balance the boy/girl ratio in the classes. Add the necessary constraint(s) to your model to limit the number of boys in each class to no more than 12, and then resolve the model.
+
+What is the objective value now?
+
+Ans: 46
+
+Now how many students received their first choice class?
+
+Ans: 34
+
+# Adding logical constraints
+
+In the next few questions, we'll add some logical constraints to our model that capture additional preferences of parents, teachers, and school therapists. A constraint added in one part will be used in all subsequent parts.
+
+Students 10 and 11 are twins, and the school has a policy that twins must be placed in different classes. Add the necessary constraint(s) to implement this policy, and solve the model again.
+
+What is the objective value now?
+
+Ans: 46
+
+# Adding logical constraints 2
+
+Students 4, 9, 15, 25, 30, and 36 are all from the same neighborhood. The school would like to put at least 2 students from this neighborhood in each class. Add the necessary constraint(s) to implement this policy, and solve the model again.
+
+What is the objective value now?
+
+Ans: 46
+
+# Adding logical constraints 3
+
+The school therapist strongly recommends that students 20 and 21 are placed in the same classroom, that student 1 is placed in classroom 2, and that student 40 is placed in classroom 2. Add the necessary constraint(s) to implement this policy, and solve the model again.
+
+What is the objective value now?
+
+Ans: 46
+
+# Adding the logical constraints 4
+
+How has the objective function value changed in this part, and what does this tell us?
+
+Ans: The objective function value has remained the same after adding each logical constraint, because the solver was always able to find a solution that satisfies all of the constraints without having to increase the objective value. 

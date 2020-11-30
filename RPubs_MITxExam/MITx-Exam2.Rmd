@@ -1,0 +1,209 @@
+---
+title: "MITx-Exam2"
+author: "Raka"
+date: "11/26/2020"
+output: html_document
+---
+
+## Exam 2: PREDICTING BANK TELEMARKETING SUCCESS
+
+The success of marketing campaigns can be highly specific to the product, the target audience, and the campaign methods. In this problem, we examine data from direct marketing campaigns of a Portuguese banking institution between May 2008 and November 2010. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be or not subscribed.
+
+In this analysis, the goal would be predicting the dependent variable y, which takes value 1 if the the client subscribed to a term deposit, and 0 otherwise. The data we will be using bank.csv is a subset of the original data, containing 5000 examples and 20 input variables. The variable information is as follows:
+
+    age
+    job - type of job
+    marital - marital status
+    education - Shows the level of education of each customer
+    default - Whether a customer has credit in default
+    housing - Does the customer have a housing loan?
+    loan - Does the customer have a personal loan?
+    contact - The contact communication type
+    month - Last contact month of year
+    day_of_week - Last contact day of Week
+    duration - Last contact duration in seconds (Note: this variable is not known before making the call)
+    campaign - Number of contact performed for the client during the campaign
+    pdays - number of days that passed by after the client was last contacted from a previous campaign (value of 999 means the client was not previously contacted)
+    previous - number of contacts performed before this campaign and for this client
+    poutcome - outcome of the previous marketing campaign
+    emp.var.rate - employment variation rate - quarterly indicator
+    cons.price.idx - consumer price index - monthly indicator
+    cons.conf.idx - consumer confidence index - monthly indicator
+    euribor3m - euribor 3 month rate - daily indicator
+    nr.employed - number of employees - quarterly indicator
+    
+# Loading the data
+
+Use the read.csv function to load the contents of bank.csv into a data frame called bank. What is the average age in the data set?
+
+```{r}
+
+bank <- read.csv("bank.csv")
+mean(bank$age)
+summary(bank)
+
+```
+    
+# Call dureations by job
+
+Build a boxplot that shows the call duration distributions over different jobs. Which three jobs have the longest average call durations? (if it's hard to see from the boxplot, use tapply function.)
+
+```{r}
+
+str(bank)
+bank$job <- as.factor(bank$job)
+
+boxplot(duration ~ job, data = bank)
+tapply(bank$duration, bank$job, FUN = mean, na.rm = TRUE)
+```
+
+# Problem of Multicolinearity
+
+As good practice, it is always helpful to first check for multicolinearity before running models, especially since this dataset contains macroeconomic indicators. Examine the correlation between the following variables: emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, and nr.employed. Which of the following statements are correct (limited to just these selected variables)?
+
+```{r}
+# select variables 
+vars <- c("emp.var.rate", "cons.price.idx", 
+            "cons.conf.idx", "euribor3m", "nr.employed")
+bank_vars <- bank[vars]
+
+cor(bank_vars)
+```
+
+# Splitting into a training and testing set
+
+Splitting into a Training and Testing Set
+0.0/5.0 points (graded)
+
+Obtain a random training/testing set split with:
+
+set.seed(201)
+
+library(caTools)
+
+spl = sample.split(bank$y, 0.7)
+
+Split months into a training data frame called "training" using the observations for which spl is TRUE and a testing data frame called "testing" using the observations for which spl is FALSE.
+
+Why do we use the sample.split() function to split into a training and testing set? 
+
+```{r}
+
+set.seed(201)
+library(caTools)
+
+spl <-  sample.split(bank$y, 0.7)
+
+bank_training <- subset(bank, spl == TRUE)
+bank_testing <- subset(bank, spl == FALSE)
+```
+
+# Training a logistic Regression Model
+
+Train a logistic regression model using independent variables age, job, marital, education, default, housing, loan, contact, month, day_of_week, campaign, pdays, previous, poutcome, emp.var.rate, cons.price.idx, and cons.conf.idx, using the training set to obtain the model. Notice that we have removed duration (since it's not available before the call, so shouldn't be used in a strictly predictive model), euribor3m and nr.employed (due to multicolinearity issue).
+
+Which of the following characteristics are statistically significantly POSITIVELY (at 0.05 level) associated with an increased chance of subscribing to the product?
+
+```{r}
+
+logY <- glm(y ~ . -duration -euribor3m -nr.employed, data = bank_training, family = binomial)
+summary(logY)
+
+# Interpreting monthmar
+exp(1.286) - 1
+```
+
+# Obtaining test set predictions
+
+Using your logistic regression model, obtain predictions on the test set. Then, using a probability threshold of 0.5, create a confusion matrix for the test set.
+
+We would like to compare the predictions obtained by the logistic regression model and those obtained by a naive baseline model. Remember that the naive baseline model we use in this class always predicts the most frequent outcome in the training set for all observations in the test set.
+
+What is the number of test set observations where the prediction from the logistic regression model is different than the prediction from the baseline model? 
+
+```{r}
+
+pred_Y <- predict(logY, newdata = bank_testing, type = "response")
+
+# Confusion matrix
+table(bank_testing$y, pred_Y > 0.5)
+table(pred_Y<0.5)
+table(bank_testing$y)
+
+```
+
+# Computing test-set AUC
+
+What is the test-set AUC of the logistic regression model?
+
+```{r}
+library(ROCR)
+
+ROCRPred <- prediction(pred_Y, bank_testing$y)
+as.numeric(performance(ROCRPred, "auc")@y.values)
+
+# plotting purpose
+perf1 <- performance(ROCRPred, "tpr", "fpr")
+plot(perf1, colorize = TRUE)
+
+```
+
+# Cross-validation to select parameters
+
+Which of the following best describes how 10-fold cross-validation works when selecting between 4 different parameter values?
+
+Ans: 40 models are trained on subsets of the training set and evaluated on a portion of the training set correct 
+
+# Cross-Validation for a CART Model 
+
+Set the random seed to 201 (even though you have already done so earlier in the problem). Then use the caret package and the train function to perform 10-fold cross validation with the training data set to select the best cp value for a CART model that predicts the dependent variable y using the same set of independent variables as in the logistic regression (Problem 5). Select the cp value from a grid consisting of the 50 values 0.001, 0.002, ..., 0.05.
+
+What cp value maximizes the cross-validation accuracy?
+
+```{r}
+library(caret)
+set.seed(201)
+
+numFolds <- trainControl(method = "cv", number = 10)
+cartGrid <- expand.grid( .cp = seq(0.001,0.05,0.001)) 
+
+bank_training$y <- as.factor(bank_training$y)
+str(bank_training)
+
+train(y ~ . -duration -euribor3m -nr.employed, data = bank_training, method = "rpart", trControl = numFolds, tuneGrid = cartGrid)
+
+```
+
+# Train CART Model
+
+Build and plot the CART model trained with the parameter identified in Problem 13, again predicting the dependent variable using the same set of independent variables. What variable is used as the first (upper-most) split in the tree?
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+bankTree <- rpart(y ~ . -duration -euribor3m -nr.employed, data = bank_training, method = "class", cp = 0.014)
+prp(bankTree)
+
+```
+
+# Test-set Accuracy for CART Model
+
+Using the CART model you created in Problem 14, obtain predictions on the test set (using the parameter type="class" with the predict function). Then, create a confusion matrix for the test set.
+
+What is the accuracy of your CART model?
+
+```{r}
+
+pred_bankTree <- predict(bankTree, newdata = bank_testing, type = "class")
+
+# conf matrix
+table(bank_testing$y, pred_bankTree)
+
+# accuracy
+(1303+28)/nrow(bank_testing)
+
+## DONE PART 2 =)
+
+```
+

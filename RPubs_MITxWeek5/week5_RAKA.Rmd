@@ -1,0 +1,598 @@
+---
+title: "Week5_textlytics"
+author: "Raka"
+date: "10/26/2020"
+output: html_document
+---
+
+## Assignment 1: Detecting vandalism on Wikipedia
+
+Wikipedia is a free online encyclopedia that anyone can edit and contribute to. It is available in many languages and is growing all the time. On the English language version of Wikipedia:
+
+    There are currently 4.7 million pages.
+    There have been a total over 760 million edits (also called revisions) over its lifetime.
+    There are approximately 130,000 edits per day.
+
+One of the consequences of being editable by anyone is that some people vandalize pages. This can take the form of removing content, adding promotional or inappropriate content, or more subtle shifts that change the meaning of the article. With this many articles and edits per day it is difficult for humans to detect all instances of vandalism and revert (undo) them. As a result, Wikipedia uses bots - computer programs that automatically revert edits that look like vandalism. In this assignment we will attempt to develop a vandalism detector that uses machine learning to distinguish between a valid edit and vandalism.
+
+The data for this problem is based on the revision history of the page Language. Wikipedia provides a history for each page that consists of the state of the page at each revision. Rather than manually considering each revision, a script was run that checked whether edits stayed or were reverted. If a change was eventually reverted then that revision is marked as vandalism. This may result in some misclassifications, but the script performs well enough for our needs.
+
+As a result of this preprocessing, some common processing tasks have already been done, including lower-casing and punctuation removal. The columns in the dataset are:
+
+    Vandal = 1 if this edit was vandalism, 0 if not.
+    Minor = 1 if the user marked this edit as a "minor edit", 0 if not.
+    Loggedin = 1 if the user made this edit while using a Wikipedia account, 0 if they did not.
+    Added = The unique words added.
+    Removed = The unique words removed.
+
+Notice the repeated use of unique. The data we have available is not the traditional bag of words - rather it is the set of words that were removed or added. For example, if a word was removed multiple times in a revision it will only appear one time in the "Removed" column.
+
+```{r loading}
+wiki <- read.csv("wiki.csv", stringsAsFactors = FALSE)
+str(wiki)
+table(wiki$Vandal)
+```
+
+# Bags of words
+
+We will now use the bag of words approach to build a model. We have two columns of textual data, with different meanings. For example, adding rude words has a different meaning to removing rude words. We'll start like we did in class by building a document term matrix from the Added column. The text already is lowercase and stripped of punctuation. So to pre-process the data, just complete the following four steps:
+
+1) Create the corpus for the Added column, and call it "corpusAdded".
+
+2) Remove the English-language stopwords.
+
+3) Stem the words.
+
+4) Build the DocumentTermMatrix, and call it dtmAdded.
+
+If the code length(stopwords("english")) does not return 174 for you, then please run the line of code in this file, which will store the standard stop words in a variable called sw. When removing stop words, use tm_map(corpusAdded, removeWords, sw) instead of tm_map(corpusAdded, removeWords, stopwords("english")).
+
+How many terms appear in dtmAdded?
+
+```{r bagfs}
+library(tm)
+corpusAdded <- Corpus(VectorSource(wiki$Added))
+strwrap(corpusAdded[[1]])
+
+corpusAdded <- tm_map(corpusAdded, removeWords, stopwords("english"))
+corpusAdded <- tm_map(corpusAdded, stemDocument)
+
+frequencies <- DocumentTermMatrix(corpusAdded)
+frequencies
+
+sparse <- removeSparseTerms(frequencies, 0.997)
+sparse
+```
+
+# Bags of Words 2
+
+Convert sparseAdded to a data frame called wordsAdded, and then prepend all the words with the letter A, by using the command:
+
+colnames(wordsAdded) = paste("A", colnames(wordsAdded))
+
+Now repeat all of the steps we've done so far (create a corpus, remove stop words, stem the document, create a sparse document term matrix, and convert it to a data frame) to create a Removed bag-of-words dataframe, called wordsRemoved, except this time, prepend all of the words with the letter R:
+
+colnames(wordsRemoved) = paste("R", colnames(wordsRemoved))
+
+How many words are in the wordsRemoved data frame?
+
+```{r bags2}
+
+wordsAdded <- as.data.frame(as.matrix(sparse))
+colnames(wordsAdded) <- paste("A", colnames(wordsAdded))
+
+removedWords <-Corpus(VectorSource(wiki$Removed))
+strwrap(removedWords[[1]])
+
+removedWords <- tm_map(removedWords, removeWords, stopwords("english"))
+removedWords <- tm_map(removedWords, stemDocument)
+
+frequencies_rm <- DocumentTermMatrix(removedWords)
+frequencies_rm
+
+sparse2 <- removeSparseTerms(frequencies_rm, 0.997)
+sparse2
+
+wordsRemoved <- as.data.frame(as.matrix(sparse2))
+colnames(wordsRemoved) <-  paste("R", colnames(wordsRemoved))
+```
+
+# Bags of Words 3
+
+Combine the two data frames into a data frame called wikiWords with the following line of code:
+
+wikiWords = cbind(wordsAdded, wordsRemoved)
+
+The cbind function combines two sets of variables for the same observations into one data frame. Then add the Vandal column (HINT: remember how we added the dependent variable back into our data frame in the Twitter lecture). Set the random seed to 123 and then split the data set using sample.split from the "caTools" package to put 70% in the training set.
+
+What is the accuracy on the test set of a baseline method that always predicts "not vandalism" (the most frequent outcome)?
+
+```{r bags3}
+library(caTools)
+wikiWords <- cbind(wordsAdded, wordsRemoved) 
+wikiWords$Vandal <- wiki$Vandal
+
+set.seed(123)
+```
+
+
+```{r bags4}
+split <- sample.split(wikiWords$Vandal, SplitRatio = 0.7)
+
+train <- subset(wikiWords, split == TRUE)
+test <- subset(wikiWords, split == FALSE)
+
+table(test$Vandal)
+(618)/(618+545)
+
+```
+
+# Bags of words 4
+
+Build a CART model to predict Vandal, using all of the other variables as independent variables. Use the training set to build the model and the default parameters (don't set values for minbucket or cp).
+
+What is the accuracy of the model on the test set, using a threshold of 0.5? (Remember that if you add the argument type="class" when making predictions, the output of predict will automatically use a threshold of 0.5.)
+
+```{r}
+library(rpart)
+library(rpart.plot)
+wikiCART <- rpart(Vandal ~ ., data = train, method = 'class') 
+prp(wikiCART)
+
+predCART <- predict(wikiCART, newdata = test, type = 'class')
+table(test$Vandal, predCART)
+(614+19)/(614+19+4+526)
+```
+# Part 2.1 Problem-specific knowledge
+
+The key class of words we will use are website addresses. "Website addresses" (also known as URLs - Uniform Resource Locators) are comprised of two main parts. An example would be "http://www.google.com". The first part is the protocol, which is usually "http" (HyperText Transfer Protocol). The second part is the address of the site, e.g. "www.google.com". We have stripped all punctuation so links to websites appear in the data as one word, e.g. "httpwwwgooglecom". We hypothesize that given that a lot of vandalism seems to be adding links to promotional or irrelevant websites, the presence of a web address is a sign of vandalism.
+
+```{r}
+
+wikiWords2 <- wikiWords
+wikiWords2$http <- ifelse(grepl("http", wiki$Added, fixed = TRUE), 1, 0)
+table(wikiWords2$http)
+```
+
+# Prob-specific knowledge 2
+
+In problem 1.5, you computed a vector called "spl" that identified the observations to put in the training and testing sets. Use that variable (do not recompute it with sample.split) to make new training and testing sets:
+
+wikiTrain2 = subset(wikiWords2, spl==TRUE)
+
+wikiTest2 = subset(wikiWords2, spl==FALSE)
+
+Then create a new CART model using this new variable as one of the independent variables.
+
+What is the new accuracy of the CART model on the test set, using a threshold of 0.5?
+
+```{r}
+split <- sample.split(wikiWords2$Vandal, SplitRatio = 0.7)
+wikiTrain2 <- subset(wikiWords2, split == TRUE)
+wikiTest2 <- subset(wikiWords2, split == FALSE)
+
+wikiCART2 <- rpart(Vandal ~ ., data = wikiTrain2, method = 'class')
+predCART2 <- predict(wikiCART2, newdata = wikiTest2, type = "class")
+table(wikiTest2$Vandal, predCART2)
+(605+70)/(605+70+13+475)
+```
+
+# Problem-specific knowledge 3
+
+Another possibility is that the number of words added and removed is predictive, perhaps more so than the actual words themselves. We already have a word count available in the form of the document-term matrices (DTMs).
+
+Sum the rows of dtmAdded and dtmRemoved and add them as new variables in your data frame wikiWords2 (called NumWordsAdded and NumWordsRemoved) by using the following commands:
+
+wikiWords2$NumWordsAdded = rowSums(as.matrix(dtmAdded))
+
+wikiWords2$NumWordsRemoved = rowSums(as.matrix(dtmRemoved))
+
+What is the average number of words added?
+
+```{r}
+
+wikiWords2$NumWordsAdded <- rowSums(as.matrix(frequencies))
+
+wikiWords2$NumWordsRemoved <- rowSums(as.matrix(frequencies_rm))
+
+mean(wikiWords2$NumWordsAdded)
+```
+
+# Problem-specific knowledge 5
+
+In problem 1.5, you computed a vector called "spl" that identified the observations to put in the training and testing sets. Use that variable (do not recompute it with sample.split) to make new training and testing sets with wikiWords2. Create the CART model again (using the training set and the default parameters).
+
+What is the new accuracy of the CART model on the test set?
+
+```{r}
+
+train_new <- subset(wikiWords2, split == TRUE)
+test_new <- subset(wikiWords2, split == FALSE)
+
+CART3 <- rpart(Vandal ~ ., data = train_new, method = "class")
+predCART3 <- predict(CART3, newdata = test_new, type = "class")
+
+table(test_new$Vandal, predCART3)
+(514+248)/(514+248+104+297)
+```
+
+# Using non-textual data
+
+We have two pieces of "metadata" (data about data) that we haven't yet used. Make a copy of wikiWords2, and call it wikiWords3:
+
+wikiWords3 = wikiWords2
+
+Then add the two original variables Minor and Loggedin to this new data frame:
+
+wikiWords3$Minor = wiki$Minor
+
+wikiWords3$Loggedin = wiki$Loggedin
+
+In problem 1.5, you computed a vector called "spl" that identified the observations to put in the training and testing sets. Use that variable (do not recompute it with sample.split) to make new training and testing sets with wikiWords3.
+
+Build a CART model using all the training data. What is the accuracy of the model on the test set?
+
+```{r}
+
+wikiWords3 <- wikiWords2
+
+wikiWords3$Minor <- wiki$Minor
+wikiWords3$Loggedin <- wiki$Loggedin
+
+train_new2 <- subset(wikiWords3, split == TRUE)
+test_new2 <- subset(wikiWords3, split == FALSE)
+
+CART4 <- rpart(Vandal ~ ., data = train_new2, method = "class")
+predCART4 <- predict(CART4, newdata = test_new2, type = "class")
+
+table(test_new2$Vandal, predCART4)
+(595+241)/(595+241+23+304)
+
+prp(CART4)
+
+```
+## Assignment 2: Automating Reviews in Medicine
+
+The medical literature is enormous. Pubmed, a database of medical publications maintained by the U.S. National Library of Medicine, has indexed over 23 million medical publications. Further, the rate of medical publication has increased over time, and now there are nearly 1 million new publications in the field each year, or more than one per minute.
+
+The large size and fast-changing nature of the medical literature has increased the need for reviews, which search databases like Pubmed for papers on a particular topic and then report results from the papers found. While such reviews are often performed manually, with multiple people reviewing each search result, this is tedious and time consuming. In this problem, we will see how text analytics can be used to automate the process of information retrieval.
+
+```{r}
+trials <- read.csv("clinical_trial.csv", stringsAsFactors = FALSE)
+str(trials)
+max(nchar(trials$abstract))
+
+table(nchar(trials$abstract))
+
+which.min(nchar(trials$title))
+trials$title[which.min(nchar(trials$title))]
+
+```
+
+# Preparing two Corpora
+
+Because we have both title and abstract information for trials, we need to build two corpora instead of one. Name them corpusTitle and corpusAbstract.
+
+Following the commands from lecture, perform the following tasks (you might need to load the "tm" package first if it isn't already loaded). Make sure to perform them in this order.
+
+
+```{r}
+
+corpusTitle <- Corpus(VectorSource(trials$title))
+corpusAbstract <- Corpus(VectorSource(trials$abstract))
+
+corpusTitle <- tm_map(corpusTitle, tolower)
+corpusAbstract <- tm_map(corpusAbstract, tolower)
+
+corpusTitle <- tm_map(corpusTitle, removePunctuation)
+corpusAbstract <- tm_map(corpusAbstract, removePunctuation)
+
+corpusTitle <- tm_map(corpusTitle, removeWords, stopwords("english"))
+corpusAbstract <- tm_map(corpusAbstract, removeWords, stopwords("english"))
+
+corpusTitle <- tm_map(corpusTitle, stemDocument)
+corpusAbstract <- tm_map(corpusAbstract, stemDocument)
+
+dtmTitle <- DocumentTermMatrix(corpusTitle)
+dtmTitle
+dtmAbstract <- DocumentTermMatrix(corpusAbstract)
+dtmAbstract
+
+dtmTitle <- removeSparseTerms(dtmTitle, 0.95)
+dtmAbstract <- removeSparseTerms(dtmAbstract, 0.95)
+
+
+dtmTitle <- as.data.frame(as.matrix(dtmTitle))
+dtmAbstract <- as.data.frame(as.matrix(dtmAbstract))
+
+max(colSums(dtmAbstract))
+```
+
+# Building the model
+
+We want to combine dtmTitle and dtmAbstract into a single data frame to make predictions. However, some of the variables in these data frames have the same names. To fix this issue, run the following commands:
+
+colnames(dtmTitle) = paste0("T", colnames(dtmTitle))
+
+colnames(dtmAbstract) = paste0("A", colnames(dtmAbstract))
+
+What was the effect of these functions?
+
+```{r}
+
+colnames(dtmTitle) <- paste0("T", colnames(dtmTitle))
+
+colnames(dtmAbstract) <- paste0("A", colnames(dtmAbstract))
+
+dtm <- cbind(dtmTitle, dtmAbstract)
+dtm$trial <- trials$trial
+ncol(dtm)
+```
+
+# Building the model 2
+
+Now that we have prepared our data frame, it's time to split it into a training and testing set and to build regression models. Set the random seed to 144 and use the sample.split function from the caTools package to split dtm into data frames named "train" and "test", putting 70% of the data in the training set.
+
+What is the accuracy of the baseline model on the training set? (Remember that the baseline model predicts the most frequent outcome in the training set for all observations.)
+
+```{r}
+
+set.seed(144)
+spl <- sample.split(dtm$trial, SplitRatio = 0.7)
+
+train <- subset(dtm, spl == TRUE)
+test <- subset(dtm, spl == FALSE)
+
+table(test$trial)
+(313)/(313+245)
+```
+
+# Building the CART model
+
+Build a CART model called trialCART, using all the independent variables in the training set to train the model, and then plot the CART model. Just use the default parameters to build the model (don't add a minbucket or cp value). Remember to add the method="class" argument, since this is a classification problem.
+
+What is the name of the first variable the model split on?
+
+```{r}
+
+trialCART <- rpart(trial ~ ., data = train, method = "class")
+prp(trialCART)
+
+pred <- predict(trialCART, newdata = test)
+pred.prob <- pred[,2]
+max(pred.prob)
+length(pred)
+
+pred2 <- predict(trialCART, newdata = train, type = "class")
+table(train$trial, pred2)
+(631+441)/(631+441+99+131) # accuracy
+
+(441)/(441+131) # sensitivity
+631/(631+99) # specificity
+
+library(ROCR)
+predROCR <- prediction(pred.prob, test$trial)
+perfROCR <- performance(predROCR, "tpr", "fpr")
+plot(perfROCR, colorize = TRUE)
+performance(predROCR, "auc")@y.values
+
+```
+
+# Assignment 3: Separating Span from Ham
+
+Nearly every email user has at some point encountered a "spam" email, which is an unsolicited message often advertising a product, containing links to malware, or attempting to scam the recipient. Roughly 80-90% of more than 100 billion emails sent each day are spam emails, most being sent from botnets of malware-infected computers. The remainder of emails are called "ham" emails.
+
+As a result of the huge number of spam emails being sent across the Internet each day, most email providers offer a spam filter that automatically flags likely spam messages and separates them from the ham. Though these filters use a number of techniques (e.g. looking up the sender in a so-called "Blackhole List" that contains IP addresses of likely spammers), most rely heavily on the analysis of the contents of an email via text analytics.
+
+Begin by loading the dataset emails.csv into a data frame called emails. Remember to pass the stringsAsFactors=FALSE option when loading the data.
+
+How many emails are in the dataset?
+
+```{r}
+
+emails <- read.csv("emails.csv")
+table(emails$spam)
+
+max(nchar(emails$text))
+which.min(nchar(emails$text))
+
+```
+
+# Preparing the Corpus
+
+Follow the standard steps to build and pre-process the corpus:
+
+1) Build a new corpus variable called corpus.
+
+2) Using tm_map, convert the text to lowercase.
+
+3) Using tm_map, remove all punctuation from the corpus.
+
+4) Using tm_map, remove all English stopwords from the corpus.
+
+5) Using tm_map, stem the words in the corpus.
+
+6) Build a document term matrix from the corpus, called dtm.
+
+```{r}
+
+corpus_mail <- Corpus(VectorSource(emails$text))
+
+corpus_mail <- tm_map(corpus_mail, tolower)
+corpus_mail <- tm_map(corpus_mail, removePunctuation)
+corpus_mail <- tm_map(corpus_mail, removePunctuation)
+corpus_mail <- tm_map(corpus_mail, removeWords, stopwords("english"))
+corpus_mail <- tm_map(corpus_mail, stemDocument)
+
+dtm <- DocumentTermMatrix(corpus_mail)
+dtm
+
+#limited dm
+
+spdtm <- removeSparseTerms(dtm, 0.95)
+spdtm
+
+emailsSparse <- as.data.frame(as.matrix(spdtm))
+colnames(emailsSparse) <- make.names(colnames(emailsSparse)) #approproiating names
+colSums(emailsSparse)
+colSums(emailsSparse)[324]
+which.max(colSums(emailsSparse))
+
+emailsSparse$spam <- emails$spam
+
+#only ham
+ham_mails <- subset(emailsSparse, spam == 0)
+length(colSums(ham_mails))
+
+
+sort(colSums(subset(emailsSparse, spam == 0)))
+length(sort(colSums(subset(emailsSparse, spam == 0))))
+length(sort(colSums(ham_mails)))
+
+length(which(colSums(ham_mails)>10000))
+
+length(which(colSums(ham_mails)>1000))
+length(which(colSums(ham_mails)>5000))
+
+length(which(colSums(emailsSparse)>1000))
+
+subset(emailsSparse, spam == 1)
+sort(colSums(subset(emailsSparse, spam == 1)))
+```
+
+# Machine learning models
+
+First, convert the dependent variable to a factor with "emailsSparse$spam = as.factor(emailsSparse$spam)".
+
+Next, set the random seed to 123 and use the sample.split function to split emailsSparse 70/30 into a training set called "train" and a testing set called "test". Make sure to perform this step on emailsSparse instead of emails.
+
+Using the training set, train the following three machine learning models. The models should predict the dependent variable "spam", using all other available variables as independent variables. Please be patient, as these models may take a few minutes to train.
+
+1) A logistic regression model called spamLog. You may see a warning message here - we'll discuss this more later.
+
+2) A CART model called spamCART, using the default parameters to train the model (don't worry about adding minbucket or cp). Remember to add the argument method="class" since this is a binary classification problem.
+
+3) A random forest model called spamRF, using the default parameters to train the model (don't worry about specifying ntree or nodesize). Directly before training the random forest model, set the random seed to 123 (even though we've already done this earlier in the problem, it's important to set the seed right before training the model so we all obtain the same results. Keep in mind though that on certain operating systems, your results might still be slightly different).
+
+For each model, obtain the predicted spam probabilities for the training set. Be careful to obtain probabilities instead of predicted classes, because we will be using these values to compute training set AUC values. Recall that you can obtain probabilities for CART models by not passing any type parameter to the predict() function, and you can obtain probabilities from a random forest by adding the argument type="prob". For CART and random forest, you need to select the second column of the output of the predict() function, corresponding to the probability of a message being spam.
+
+You may have noticed that training the logistic regression model yielded the messages "algorithm did not converge" and "fitted probabilities numerically 0 or 1 occurred". Both of these messages often indicate overfitting and the first indicates particularly severe overfitting, often to the point that the training set observations are fit perfectly by the model. Let's investigate the predicted probabilities from the logistic regression model.
+
+How many of the training set predicted probabilities from spamLog are less than 0.00001?
+
+```{r}
+
+emailsSparse$spam <- as.factor(emailsSparse$spam)
+set.seed(123)
+
+splt <- sample.split(emailsSparse$spam, SplitRatio = 0.7)
+
+train <- subset(emailsSparse, splt == TRUE)
+test <- subset(emailsSparse, splt == FALSE)
+
+# 3 machine learning models
+
+spamLog <- glm(spam ~ ., data = train, family = binomial)
+spamCART <- rpart(spam ~., data = train, method = 'class')
+
+set.seed(123)
+library(randomForest)
+spamRF <- randomForest(spam ~., data = train)
+
+predLog <- predict(spamLog, newdata = train, type = "response")
+predLog
+
+length(which(predLog<0.00001))
+length(which(predLog>0.99999))
+length(which(predLog>0.00001 & predLog<0.99999))
+
+table(train$spam, predLog > 0.5)
+(3052+954)/nrow(train)
+summary(spamLog)
+
+prp(spamCART)
+
+predROCR <- prediction(predLog, train$spam)
+perfROCR <- performance(predROCR, "tpr", "fpr")
+plot(perfROCR, colorize = TRUE)
+performance(predROCR, "auc")@y.values
+
+as.numeric(performance(predROCR, "auc")@y.values) 
+```
+
+# Moving to CART model
+
+What is the training set accuracy of spamCART, using a threshold of 0.5 for predictions? (Remember that if you used the type="class" argument when making predictions, you automatically used a threshold of 0.5. If you did not add in the type argument to the predict function, the probabilities are in the second column of the predict output.)
+
+```{r}
+
+predCARTmail <- predict(spamCART, newdata = train, type = "class")
+table(train$spam, predCARTmail)
+(2885+894)/nrow(train)
+
+predCARTmail2 <- predict(spamCART, newdata = train)
+pred.prob2 <- predCARTmail2[,2]
+
+predCartAUC <- prediction(pred.prob2, train$spam)
+as.numeric(performance(predCartAUC, "auc")@y.values)
+```
+
+# Random forest models
+
+What is the training set accuracy of spamRF, using a threshold of 0.5 for predictions? (Remember that your answer might not match ours exactly, due to random behavior in the random forest algorithm on different operating systems.)
+
+```{r}
+
+predRFmail <- predict(spamRF, newdata = train)
+table(train$spam, predRFmail)
+(3046+968)/nrow(train)
+
+
+predRFmail.prob <- predict(spamRF, newdata = train, type = "prob")
+probRF <- predRFmail.prob[,2]
+
+predRFAUC <- prediction(probRF, train$spam)
+as.numeric(performance(predRFAUC, "auc")@y.values)
+```
+
+# Evaluating on test set
+
+Obtain predicted probabilities for the testing set for each of the models, again ensuring that probabilities instead of classes are obtained.
+
+What is the testing set accuracy of spamLog, using a threshold of 0.5 for predictions?
+
+```{r}
+
+predLogTest <- predict(spamLog, newdata = test, type = "response")
+table(test$spam, predLogTest>0.5)
+(1257+376)/nrow(test)
+
+predROCRlogTest <- prediction(predLogTest, test$spam)
+as.numeric(performance(predROCRlogTest, "auc")@y.values) 
+
+# now spamCART TEST
+
+predCARTmailtest <- predict(spamCART, newdata = test, type = "class")
+table(test$spam, predCARTmailtest)
+(1228+386)/nrow(test)
+
+predCARTmail2test <- predict(spamCART, newdata = test)
+pred.prob2test <- predCARTmail2test[,2]
+
+predCartAUC2test <- prediction(pred.prob2test, test$spam)
+as.numeric(performance(predCartAUC2test, "auc")@y.values)
+
+# now spam RF TEST
+
+predRFmailtest <- predict(spamRF, newdata = test)
+table(test$spam, predRFmailtest)
+(1291+385)/nrow(test)
+
+predRFmail.probtest <- predict(spamRF, newdata = test, type = "prob")
+probRFtest <- predRFmail.probtest[,2]
+
+predRFAUC_test <- prediction(probRFtest, test$spam)
+as.numeric(performance(predRFAUC_test, "auc")@y.values)
+
+```
+

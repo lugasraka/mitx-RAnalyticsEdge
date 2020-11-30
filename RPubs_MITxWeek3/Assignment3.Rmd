@@ -1,0 +1,518 @@
+---
+title: "MITX-week3_logisticReg"
+author: "Raka"
+date: "10/12/2020"
+output: html_document
+---
+
+```{r setup, cache = FALSE, echo = FALSE, message = FALSE, warning = FALSE, tidy = FALSE}
+require(knitr)
+options(width = 200, scipen = 5)
+options(dplyr.print_max = 200)
+# options(width = 100, digits = 7)
+opts_chunk$set(message = FALSE, error = FALSE, warning = FALSE, 
+               collapse = TRUE, tidy = FALSE,
+               cache = TRUE, cache.path = '.cache/', 
+               fig.align = 'left', dpi = 100, fig.path = 'figures/Introductiontotextanalytics/')
+```
+
+## Popularity of music records
+
+How can we use analytics to predict the popularity of a song? In this assignment, we challenge ourselves to predict whether a song will reach a spot in the Top 10 of the Billboard Hot 100 Chart.
+
+Taking an analytics approach, we aim to use information about a song's properties to predict its popularity. The dataset songs.csv consists of all songs which made it to the Top 10 of the Billboard Hot 100 Chart from 1990-2010 plus a sample of additional songs that didn't make the Top 10. This data comes from three sources: Wikipedia, Billboard.com, and EchoNest.
+
+The variables included in the dataset either describe the artist or the song, or they are associated with the following song attributes: time signature, loudness, key, pitch, tempo, and timbre.
+
+Here's a detailed description of the variables:
+
+    year = the year the song was released
+    songtitle = the title of the song
+    artistname = the name of the artist of the song
+    songID and artistID = identifying variables for the song and artist
+    timesignature and timesignature_confidence = a variable estimating the time signature of the song, and the confidence in the estimate
+    loudness = a continuous variable indicating the average amplitude of the audio in decibels
+    tempo and tempo_confidence = a variable indicating the estimated beats per minute of the song, and the confidence in the estimate
+    key and key_confidence = a variable with twelve levels indicating the estimated key of the song (C, C#, . . ., B), and the confidence in the estimate
+    energy = a variable that represents the overall acoustic energy of the song, using a mix of features such as loudness
+    pitch = a continuous variable that indicates the pitch of the song
+    timbre_0_min, timbre_0_max, timbre_1_min, timbre_1_max, . . . , timbre_11_min, and timbre_11_max = variables that indicate the minimum/maximum values over all segments for each of the twelve values in the timbre vector (resulting in 24 continuous variables)
+    Top10 = a binary variable indicating whether or not the song made it to the Top 10 of the Billboard Hot 100 Chart (1 if it was in the top 10, and 0 if it was not)
+
+
+```{r song}
+
+songs <- read.csv("songs.csv")
+str(songs)
+
+songs_2010 <- subset(songs, year == 2010)
+songs_MJ <- subset(songs, artistname == "Michael Jackson")
+songs_MJ_top10 <- subset(songs, artistname == "Michael Jackson" & Top10 == 1)
+
+```
+
+# Understanding the data
+
+The variable corresponding to the estimated time signature (timesignature) is discrete, meaning that it only takes integer values (0, 1, 2, 3, . . . ). What are the values of this variable that occur in our dataset? Select all that apply.
+
+```{r undst}
+summary(songs)
+table(songs$timesignature)
+
+songs[which.max(songs$tempo),]
+```
+
+# Creating prediction model
+
+We wish to predict whether or not a song will make it to the Top 10. To do this, first use the subset function to split the data into a training set "SongsTrain" consisting of all the observations up to and including 2009 song releases, and a testing set "SongsTest", consisting of the 2010 song releases.
+
+How many observations (songs) are in the training set?
+
+```{r predct}
+SongsTrain <- subset(songs, year <= 2009)
+SongsTest <- subset(songs, year >2009)
+
+# Nice trick to remove variables
+nonvars <- c("year", "songtitle", "artistname", "songID", "artistID")
+SongsTrain <- SongsTrain[, !(names(SongsTrain) %in% nonvars)]
+SongsTest <- SongsTest[, !(names(SongsTest) %in% nonvars)]
+
+# Log regression
+SongsLog1 <-  glm(Top10 ~ ., data=SongsTrain, family=binomial)
+summary(SongsLog1)
+
+# Checking collinearity of loudness and energy
+cor(SongsTrain)
+
+```
+
+# Beware of Multicollinearity Issues! 
+
+Create Model 2, which is Model 1 without the independent variable "loudness". This can be done with the following command:
+
+SongsLog2 = glm(Top10 ~ . - loudness, data=SongsTrain, family=binomial)
+
+We just subtracted the variable loudness. We couldn't do this with the variables "songtitle" and "artistname", because they are not numeric variables, and we might get different values in the test set that the training set has never seen. But this approach (subtracting the variable from the model formula) will always work when you want to remove numeric variables.
+
+Look at the summary of SongsLog2, and inspect the coefficient of the variable "energy". What do you observe?
+
+```{r colin}
+
+SongsLog2 <-  glm(Top10 ~ . - loudness, data=SongsTrain, family=binomial)
+summary(SongsLog2)
+
+SongsLog3 <-  glm(Top10 ~ . - energy, data=SongsTrain, family=binomial)
+summary(SongsLog3)
+```
+
+# Validating our model
+
+Make predictions on the test set using Model 3. What is the accuracy of Model 3 on the test set, using a threshold of 0.45? (Compute the accuracy as a number between 0 and 1.)
+
+```{r val}
+
+PredSongs3 <- predict(SongsLog3, newdata = SongsTest, type = "response")
+table(SongsTest$Top10, PredSongs3 >= 0.45)
+
+Accuracy <- (309+19)/(nrow(SongsTest))
+Accuracy
+
+#baseline model
+(t <- table(SongsTest$Top10))
+t[1]
+kable(t)
+
+acc_basel <- t[1]/sum(t)
+acc_basel
+```
+
+# Another validation
+
+It seems that Model 3 gives us a small improvement over the baseline model. Still, does it create an edge?
+
+Let's view the two models from an investment perspective. A production company is interested in investing in songs that are highly likely to make it to the Top 10. The company's objective is to minimize its risk of financial losses attributed to investing in songs that end up unpopular.
+
+A competitive edge can therefore be achieved if we can provide the production company a list of songs that are highly likely to end up in the Top 10. We note that the baseline model does not prove useful, as it simply does not label any song as a hit. Let us see what our model has to offer.
+
+How many songs does Model 3 correctly predict as Top 10 hits in 2010 (remember that all songs in 2010 went into our test set), using a threshold of 0.45?
+
+```{r vald}
+table(SongsTest$Top10, PredSongs3 > 0.45)
+
+Specificity <- (309/314)
+Specificity
+
+Sensitivity <- 19/59 
+Sensitivity
+```
+
+## Predicting parole violators
+
+For this prediction task, we will use data from the United States 2004 National Corrections Reporting Program, a nationwide census of parole releases that occurred during 2004. We limited our focus to parolees who served no more than 6 months in prison and whose maximum sentence for all charges did not exceed 18 months. The dataset contains all such parolees who either successfully completed their term of parole during 2004 or those who violated the terms of their parole during that year. The dataset contains the following variables:
+
+    male: 1 if the parolee is male, 0 if female
+    race: 1 if the parolee is white, 2 otherwise
+    age: the parolee's age (in years) when he or she was released from prison
+    state: a code for the parolee's state. 2 is Kentucky, 3 is Louisiana, 4 is Virginia, and 1 is any other state. The three states were selected due to having a high representation in the dataset.
+    time.served: the number of months the parolee served in prison (limited by the inclusion criteria to not exceed 6 months).
+    max.sentence: the maximum sentence length for all charges, in months (limited by the inclusion criteria to not exceed 18 months).
+    multiple.offenses: 1 if the parolee was incarcerated for multiple offenses, 0 otherwise.
+    crime: a code for the parolee's main crime leading to incarceration. 2 is larceny, 3 is drug-related crime, 4 is driving-related crime, and 1 is any other crime.
+    violator: 1 if the parolee violated the parole, and 0 if the parolee completed the parole without violation.
+
+# Loading parole dataset
+
+```{r parload}
+
+parole <- read.csv("parole.csv")
+str(parole)
+
+table(parole$violator)
+```
+# Preparing the dataset
+
+In the last subproblem, we identified variables that are unordered factors with at least 3 levels, so we need to convert them to factors for our prediction problem (we introduced this idea in the "Reading Test Scores" problem last week). Using the as.factor() function, convert these variables to factors. Keep in mind that we are not changing the values, just the way R understands them (the values are still numbers).
+
+How does the output of summary() change for a factor variable as compared to a numerical variable?
+
+```{r prep}
+
+parole$state <- as.factor(parole$state)
+parole$crime <- as.factor(parole$crime)
+summary(parole)
+```
+# Splitting into training and testing dataset
+
+To ensure consistent training/testing set splits, run the following 5 lines of code (do not include the line numbers at the beginning):
+
+1) set.seed(144)
+
+2) library(caTools)
+
+3) split = sample.split(parole$violator, SplitRatio = 0.7)
+
+4) train = subset(parole, split == TRUE)
+
+5) test = subset(parole, split == FALSE)
+
+Roughly what proportion of parolees have been allocated to the training and testing sets?
+
+```{r testtraining}
+
+set.seed(144)
+library(caTools)
+split <-  sample.split(parole$violator, SplitRatio = 0.7)
+
+train <- subset(parole, split == TRUE)
+test <- subset(parole, split == FALSE)
+
+```
+
+# Building logistic regression model
+
+If you tested other training/testing set splits in the previous section, please re-run the original 5 lines of code to obtain the original split.
+
+Using glm (and remembering the parameter family="binomial"), train a logistic regression model on the training set. Your dependent variable is "violator", and you should use all of the other variables as independent variables.
+
+What variables are significant in this model? Significant variables should have a least one star, or should have a probability less than 0.05 (the column Pr(>|z|) in the summary output). Select all that apply.
+
+```{r}
+
+ViolLog <- glm(violator ~ ., data = train, family = binomial)
+summary(ViolLog)
+
+exp(1.6119919)
+```
+
+# Another question using the same built model
+
+Consider a parolee who is male, of white race, aged 50 years at prison release, from the state of Maryland, served 3 months, had a maximum sentence of 12 months, did not commit multiple offenses, and committed a larceny. Answer the following questions based on the model's predictions for this individual. (HINT: You should use the coefficients of your model, the Logistic Response Function, and the Odds equation to solve this problem.)
+
+```{r odds}
+
+state2 <- 0
+state3 <- 0
+state4 <- 0
+time.served <- 3
+max.sentence <- 12
+multiple.offenses <- 0
+crime2 <- 1
+crime3 <- 0
+crime4 <- 0
+
+odds1 <- exp(-4.24 + 0.387*1 + 0.88*1 + -0.000175*50 + 0.4433007*state2 + 0.8349797*state3 - 3.3967878*state4  -0.1238867*time.served + 0.0802954 * max.sentence + 1.6119919*multiple.offenses + 0.6837143  * crime2)
+odds1
+
+prob <- 1/(1 + exp(-log(odds1)))
+prob
+
+```
+
+# Evaluating the model on the testing set
+
+Use the predict() function to obtain the model's predicted probabilities for parolees in the testing set, remembering to pass type="response".
+
+What is the maximum predicted probability of a violation?
+
+```{r eval}
+
+predParole <- predict(ViolLog, newdata = test, type = "response")
+max(predParole)
+
+# Confusion matrix
+
+table(test$violator, predParole > 0.5)
+sensitivity_2 <- 12/(12+11)
+sensitivity_2
+spec_2 <- 167/(167+12)
+spec_2
+
+(acc_2 <- (167+12)/ nrow(test))
+
+# Accuracy of simple model
+table(test$violator)
+179/(23+179)
+```
+
+# Finding AUC
+
+Using the ROCR package, what is the AUC value for the model?
+
+```{r acus}
+
+library(ROCR)
+
+ROCRPred <- prediction(predParole, test$violator)
+as.numeric(performance(ROCRPred, "auc")@y.values)
+```
+
+## Predicting Loan Repayment
+
+In the lending industry, investors provide loans to borrowers in exchange for the promise of repayment with interest. If the borrower repays the loan, then the lender profits from the interest. However, if the borrower is unable to repay the loan, then the lender loses money. Therefore, lenders face the problem of predicting the risk of a borrower being unable to repay a loan.
+
+To address this problem, we will use publicly available data from LendingClub.com, a website that connects borrowers and investors over the Internet. This dataset represents 9,578 3-year loans that were funded through the LendingClub.com platform between May 2007 and February 2010. The binary dependent variable not.fully.paid indicates that the loan was not paid back in full (the borrower either defaulted or the loan was "charged off," meaning the borrower was deemed unlikely to ever pay it back).
+
+To predict this dependent variable, we will use the following independent variables available to the investor when deciding whether to fund a loan:
+
+    credit.policy: 1 if the customer meets the credit underwriting criteria of LendingClub.com, and 0 otherwise.
+    purpose: The purpose of the loan (takes values "credit_card", "debt_consolidation", "educational", "major_purchase", "small_business", and "all_other").
+    int.rate: The interest rate of the loan, as a proportion (a rate of 11% would be stored as 0.11). Borrowers judged by LendingClub.com to be more risky are assigned higher interest rates.
+    installment: The monthly installments ($) owed by the borrower if the loan is funded.
+    log.annual.inc: The natural log of the self-reported annual income of the borrower.
+    dti: The debt-to-income ratio of the borrower (amount of debt divided by annual income).
+    fico: The FICO credit score of the borrower.
+    days.with.cr.line: The number of days the borrower has had a credit line.
+    revol.bal: The borrower's revolving balance (amount unpaid at the end of the credit card billing cycle).
+    revol.util: The borrower's revolving line utilization rate (the amount of the credit line used relative to total credit available).
+    inq.last.6mths: The borrower's number of inquiries by creditors in the last 6 months.
+    delinq.2yrs: The number of times the borrower had been 30+ days past due on a payment in the past 2 years.
+    pub.rec: The borrower's number of derogatory public records (bankruptcy filings, tax liens, or judgments).
+
+```{r loand}
+
+loans <- read.csv("loans.csv")
+table(loans$not.fully.paid)
+1533/(8045+1533)
+
+str(loans)
+summary(loans)
+
+is.na(loans$pub.rec)
+```
+
+# Preparing the dataset with imputation
+
+For the rest of this problem, we'll be using a revised version of the dataset that has the missing values filled in with multiple imputation (which was discussed in the Recitation of this Unit). To ensure everybody has the same data frame going forward, you can either run the commands below in your R console (if you haven't already, run the command install.packages("mice") first), or you can download and load into R the dataset we created after running the imputation: loans_imputed.csv.
+
+IMPORTANT NOTE: On certain operating systems, the imputation results are not the same even if you set the random seed. If you decide to do the imputation yourself, please still read the provided imputed dataset (loans_imputed.csv) into R and compare your results, using the summary function. If the results are different, please make sure to use the data in loans_imputed.csv for the rest of the problem.
+
+library(mice)
+
+set.seed(144)
+
+vars.for.imputation = setdiff(names(loans), "not.fully.paid")
+
+imputed = complete(mice(loans[vars.for.imputation]))
+
+loans[vars.for.imputation] = imputed
+
+Note that to do this imputation, we set vars.for.imputation to all variables in the data frame except for not.fully.paid, to impute the values using all of the other independent variables.
+
+What best describes the process we just used to handle missing values?
+
+```{r impting}
+
+library(mice)
+set.seed(144)
+vars.for.imputation = setdiff(names(loans), "not.fully.paid")
+imputed = complete(mice(loans[vars.for.imputation]))
+loans[vars.for.imputation] = imputed
+
+loans_imputed <- read.csv("loans_imputed.csv")
+
+loans_imputed == loans
+# THey're the same after all
+```
+
+# Prediction models
+
+Now that we have prepared the dataset, we need to split it into a training and testing set. To ensure everybody obtains the same split, set the random seed to 144 (even though you already did so earlier in the problem) and use the sample.split function to select the 70% of observations for the training set (the dependent variable for sample.split is not.fully.paid). Name the data frames train and test.
+
+Now, use logistic regression trained on the training set to predict the dependent variable not.fully.paid using all the independent variables.
+
+Which independent variables are significant in our model? (Significant variables have at least one star, or a Pr(>|z|) value less than 0.05.) Select all that apply.
+
+```{r predmodel}
+
+set.seed(144)
+LoansSplit <- sample.split(loans$not.fully.paid, SplitRatio = 0.7)
+rm(LoansTrain)
+Loanstrain <-  subset(loans, LoansSplit == TRUE)
+Loanstest <- subset(loans, LoansSplit == FALSE)
+
+# Building the model with all variables
+
+LogNotPaid <- glm(not.fully.paid ~., data = Loanstrain, family = binomial)
+summary(LogNotPaid)
+```
+
+# Simple case
+Consider two loan applications, which are identical other than the fact that the borrower in Application A has FICO credit score 700 while the borrower in Application B has FICO credit score 710.
+
+Let Logit(A) be the log odds of loan A not being paid back in full, according to our logistic regression model, and define Logit(B) similarly for loan B. What is the value of Logit(A) - Logit(B)?
+
+```{r ficosscore}
+
+logitA <- -0.009323718*700
+logitB <- -0.009323718*710
+logitA - logitB
+
+# The diff of odds
+exp(logitA - logitB)
+
+```
+
+# Prediction models
+
+Predict the probability of the test set loans not being paid back in full (remember type="response" for the predict function). Store these predicted probabilities in a variable named predicted.risk and add it to your test set (we will use this variable in later parts of the problem). Compute the confusion matrix using a threshold of 0.5.
+
+What is the accuracy of the logistic regression model? Input the accuracy as a number between 0 and 1.
+
+```{r premodel}
+
+predictLoans <- predict(LogNotPaid, newdata = Loanstest, type = "response")
+Loanstest$predicted.risk <- predictLoans
+table(Loanstest$not.fully.paid, predictLoans > 0.5)
+
+(accuracy3 <- (2401+3)/(nrow(Loanstest)))
+
+table(Loanstest$not.fully.paid)
+acc_3_baseline <- 2413/(2413+460)
+acc_3_baseline
+
+#Finding AUC
+
+ROCRPredLoans <- prediction(predictLoans, Loanstest$not.fully.paid)
+as.numeric(performance(ROCRPredLoans, "auc")@y.values)
+
+```
+
+# Building bivariate model aka logistic reg with single independent variable
+
+Using the training set, build a bivariate logistic regression model (aka a logistic regression model with a single independent variable) that predicts the dependent variable not.fully.paid using only the variable int.rate.
+
+```{r bivss}
+bivariate <- glm(not.fully.paid ~ int.rate, data = Loanstrain, family = binomial)
+summary(bivariate)
+
+predWithBiv <- predict(bivariate, newdata = Loanstest, type = "response")
+max(predWithBiv)
+summary(predWithBiv)
+```
+
+
+```{r biv}
+#AUC of bivariate model
+ROCRPredBiv <- prediction(predWithBiv, Loanstest$not.fully.paid)
+as.numeric(performance(ROCRPredBiv, "auc")@y.values)
+```
+
+# Profitability of an investment
+
+While thus far we have predicted if a loan will be paid back or not, an investor needs to identify loans that are expected to be profitable. If the loan is paid back in full, then the investor makes interest on the loan. However, if the loan is not paid back, the investor loses the money invested. Therefore, the investor should seek loans that best balance this risk and reward.
+
+To compute interest revenue, consider a $c investment in a loan that has an annual interest rate r over a period of t years. Using continuous compounding of interest, this investment pays back c * exp(rt) dollars by the end of the t years, where exp(rt) is e raised to the r*t power.
+
+How much does a $10 investment with an annual interest rate of 6% pay back after 3 years, using continuous compounding of interest? Hint: remember to convert the percentage to a proportion before doing the math. Enter the number of dollars, without the $ sign.
+
+```{r profit}
+
+t <- 3
+interest_rate <- 0.06
+investment <- 10
+
+compounding <- investment*exp(interest_rate*t)
+compounding
+```
+
+# Simple investment strategy
+
+In the previous subproblem, we concluded that an investor who invested c dollars in a loan with interest rate r for t years makes c * (exp(rt) - 1) dollars of profit if the loan is paid back in full and -c dollars of profit if the loan is not paid back in full (pessimistically).
+
+In order to evaluate the quality of an investment strategy, we need to compute this profit for each loan in the test set. For this variable, we will assume a $1 investment (aka c=1). To create the variable, we first assign to the profit for a fully paid loan, exp(rt)-1, to every observation, and we then replace this value with -1 in the cases where the loan was not paid in full. All the loans in our dataset are 3-year loans, meaning t=3 in our calculations. Enter the following commands in your R console to create this new variable:
+
+test$profit = exp(test$int.rate*3) - 1
+
+test$profit[test$not.fully.paid == 1] = -1
+
+What is the maximum profit of a $10 investment in any loan in the testing set (do not include the $ sign in your answer)?
+
+```{r investment}
+
+Loanstest$profit <- exp(Loanstest$int.rate*3) - 1
+Loanstest$profit[Loanstest$not.fully.paid == 1] <-  -1
+
+10*max(Loanstest$profit)
+```
+
+# Investment strategy based on Risk
+
+A simple investment strategy of equally investing in all the loans would yield profit $20.94 for a $100 investment. But this simple investment strategy does not leverage the prediction model we built earlier in this problem. As stated earlier, investors seek loans that balance reward with risk, in that they simultaneously have high interest rates and a low risk of not being paid back.
+
+To meet this objective, we will analyze an investment strategy in which the investor only purchases loans with a high interest rate (a rate of at least 15%), but amongst these loans selects the ones with the lowest predicted risk of not being paid back in full. We will model an investor who invests $1 in each of the most promising 100 loans.
+
+First, use the subset() function to build a data frame called highInterest consisting of the test set loans with an interest rate of at least 15%.
+
+What is the average profit of a $1 investment in one of these high-interest loans (do not include the $ sign in your answer)?
+
+```{r risks}
+
+# Subsetting dataset with high interest rate, 15%
+
+highInterest <- subset(Loanstest, int.rate > 0.15)
+mean(highInterest$profit)
+
+table(highInterest$not.fully.paid)
+(prop_not <- 110/(110+327))
+```
+
+# investment strategy based on Risk
+
+Next, we will determine the 100th smallest predicted probability of not paying in full by sorting the predicted risks in increasing order and selecting the 100th element of this sorted list. Find the highest predicted risk that we will include by typing the following command into your R console:
+
+cutoff = sort(highInterest$predicted.risk, decreasing=FALSE)[100]
+
+Use the subset() function to build a data frame called selectedLoans consisting of the high-interest loans with predicted risk not exceeding the cutoff we just computed. Check to make sure you have selected 100 loans for investment.
+
+What is the profit of the investor, who invested $1 in each of these 100 loans (do not include the $ sign in your answer)?
+
+```{r riskinvest}
+
+cutoff <- sort(highInterest$predicted.risk, decreasing=FALSE)[100]
+selectedLoans <- subset(highInterest, predicted.risk <= cutoff)
+sum(selectedLoans$profit)
+
+table(selectedLoans$not.fully.paid)
+
+```
+

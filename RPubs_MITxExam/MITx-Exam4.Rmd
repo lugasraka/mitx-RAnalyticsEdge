@@ -1,0 +1,150 @@
+---
+title: "MITx-exam4"
+author: "Raka"
+date: "11/30/2020"
+output: html_document
+---
+
+## Exam 4: Optimizing business decisions 
+
+A catering company provides services for up to two events a day only on weekdays. In each event, the company provides a meal for each one of the event's attendees. Each week, the catering company has a schedule of the upcoming week's events and must plan accordingly. In deciding how to purchase/cook the meals, the catering company can choose from the following three options:
+
+    Purchase meals from company A. Company A charges $4 per meal.
+    Purchase meals from company B. Company B charges $3 per meal Monday through Wednesday and $5 per meal on Thursday and Friday. In addition, company B cannot provide more than 50 meals per event.
+    Cook the meals at a cost of $2. Due to logistical constraints, the catering company cannot cook for more than 55 people per event and cannot cook for more than 100 people in one day.
+
+The catering company receives $8 per meal served given that it was requested. If the catering company provides additional meals, it will not be compensated. In this problem, this should be modeled as a constraint in which the amount of meals purchased/cook does not exceed the demand.
+
+The following is the upcoming week's schedule:
+== See excel sheet
+
+For example, Company B charges have $3 per meal on Wednesday and $5 per meal on Thursday.
+
+The company's task is to decide how to provide the upcoming week's meals. The goal is to maximize the upcoming week's profit (revenue - cost). Assume that the company's costs include only the meals' preparation/purchase and its revenue is based only on the meals sold. 
+
+Define the following variables:
+
+    x_ij (i=1,2, j=1,2...,5) The amount of meals purchased from company A for event i on day j.
+    y_ij (i=1,2, j=1,2...,5) The amount of meals purchased from company B for event i on day j.
+    z_ij (i=1,2, j=1,2...,5) The amount of meals cooked by the catering company for event i on day j.
+
+You can solve this problem with the spreadsheet software of your choice: LibreOffice, Excel, Google Sheets with OpenSolver, or OpenOffice
+
+# Objective Functions
+
+Before you set up the optimization problem in your spreadsheet software (Excel or other), we will walk you through the formulation.
+
+Note: The (c_ij*x_kj + c_ij*x_kj + ... + c_ij*x_kj) term is the SUMPRODUCT of the 1x5 cost block of the ith option and jth day and the 1x5 x variables of the kth event on day j.
+
+For example, (c_11*x_11 + c_12*x_12 + ... + c_15*x_15) is the SUMPRODUCT of company A's cost per meal during the week and the amount purchased from company A for the morning events.
+
+Which of the following is a correct expression for the catering company's revenue? Define this expression to be the revenue.
+
+Ans: 8*((x_11 + x_12 + ... + x_15 + x_21 + x_22 + ... x_25) + (y_11 + y_12 + ... + y_15 + y_21 + y_22 + ... y_25) + (z_11 + z_12 + ... + z_15 + z_21 + z_22 + ... z_25)) 
+
+Which of the following is a correct expression for the catering company's costs? Define this expression to be the cost.
+
+Ans: (c_11*x_11 + c_12*x_12 + ... + c_15*x_15) + (c_11*x_21 + c_12*x_22 + ... + c_15*x_25) + (c_21*y_11 + c_22*y_12 + ... + c_25*y_15) + (c_21*y_21 + c_22*y_22 + ... + c_25*y_25) +(c_31*z_11 + c_32*z_12 + ... + c_35*z_15) + (c_31*z_21 + c_32*z_22 + ... + c_35*z_25) 
+
+Which of the following is a correct expression for the objective function?
+
+Ans: maximize revenue - cost 
+
+Under the assumption that there is a feasible solution, will the objective value of this function ever be negative?
+
+Ans: No, regardless of the decisions taken by the model, the catering company profits from every individual meal. 
+
+# Constraints
+
+Let's organize our constraints in the following list:
+
+- Company B cannot provide more than 50 meals per event
+
+- The catering company cannot cook more than 55 meals per event
+
+- The catering company cannot cook more than 100 meals per day
+
+- Each amount chosen to be purchased/cooked is nonnegative
+
+- x_ij + y_ij + z_ij = a_ij for every i = 1,2 and j = 1,...5 where a_ij is the demand for event i on day j
+
+How many constraints does this list correspond to?
+
+Ans: 65
+
+Which of the following is the correct constraint for "Company B cannot provide more than 50 meals on Monday for the morning event"?
+
+Ans: y_11 is less than or equal to 50 
+
+Which of the following is the correct constraint for "the catering company cannot cook more than 55 meals on Monday for the evening event"?
+
+Ans: z_21 is less than or equal to 55 
+
+Which of the following is the correct constraint for "the catering company cannot cook more than 100 meals on Monday"?
+
+Ans: z_11 + z_21 is less than or equal to 100 
+
+# Constraints 2
+
+Let's observe the last two constraints:
+
+- Each amount chosen to be purchased/cooked is nonnegative
+
+- x_ij + y_ij + z_ij = a_ij for every i = 1,2 and j = 1,...5 where a_ij is the demand for event i on day j
+
+Why do we constrain the amounts being served to be nonnegative? Select the best explanation.
+
+Ans: By definition, these variables are nonnegative - it is not possible to cook or purchase negative numbers of meals 
+
+Why do we constrain the sum of amounts being served at each event to be equal to the demand? Select the best explanation.
+
+Ans: There will be no revenue for any meal served that was not requested. Therefore, the catering company must restrict itself to serve the exact amount requested. 
+
+If we change the last constarint to be "less than or equal to the demand" instead of "equal to the demand", will this affect the optimal value of the model?
+
+Ans: No, since the catering company profits from each unit of dish served, it will maximize the amount of dishes to always serve the amount requested. 
+
+# Sanity Check
+
+As you set up your model, it may be helpful to check that the output is what you expect before submitting your answers. Answer the following before setting up your model to check your understanding.
+
+How many attendees (meals) are expected in the upcoming week? 
+
+Ans: 885
+
+Ignoring the constraints, assume the catering company chooses to cook all of the meals for the upcoming week. What is the objective value in such a scenario? Denote this solution to be the cooking solution and the value to be the cooking value.
+
+Ans: 5310
+
+Returning to our original problem which includes all of the constraints formulated, is the cooking solution feasible?
+
+Ans: No
+
+Assuming there exists a feasible solution to our original problem, will the optimal revenue be higher than that of the cooking value?
+
+Ans: No
+
+# Solving the model
+
+Formulate the model in LibreOffice/Excel and solve.
+
+What is the optimal objective value?
+
+Ans: 4435
+
+How many meals are being purchased from company B on Wednesday for the morning event?
+
+Ans: 50
+
+Out of all the meals being cooked on Friday, the catering company wants to cook the maximum amount of meals for the evening event. Note that the catering company is still contrained to 55 meals per event.
+
+Given this preference and the optimal objective value, how many meals are being cooked by the catering company on Friday for the evening event?
+
+Ans: 55
+
+# Sensitivity Analysis
+
+Suppose the original price to cook a meal increases by $0.5.
+
+How will this impact the amount of meals being cooked? Answer this without re-solving the model. 
+

@@ -1,0 +1,313 @@
+---
+title: "Unit1-IntrotoAnalytics"
+author: "Raka"
+date: "9/21/2020"
+output: html_document
+---
+
+## Getting started with R: Vector and dataframe
+
+I would like to document all of my learning journey for this specific course on EDX: MITx Analytics Edge, offered to students who are interesting in using R as the data science engine. For those who are interested, go to: https://www.edx.org/course/the-analytics-edge for details.
+
+```{r vector&dataframe}
+c(2,5,1,6,3)
+country <- c("Brazil", "Indonesia", "China", "USA")
+country
+lifeExpectancy <- c(78,75,72,81)
+
+# Getting specific element. ex: Indonesia, number 2
+country[2]
+
+```
+
+## Creating sequence of numbers 
+
+We can also create a sequence of numbers using seq() function. See below.
+
+```{r sequence}
+seq(0,100,2)
+```
+
+## Data frame in R
+
+```{r dataframe}
+countryData <- data.frame(country, lifeExpectancy)
+countryData
+```
+## Adding data into the dataframe
+
+Bear in mind, I just randomly created these numbers without checking their actual values.
+
+```{r addDF}
+countryData$population <- c(10000,22222,64545454,11101)
+countryData
+```
+
+## Combining/ appending dataframe
+
+For instance, we have 2 extra countries -- to be addded as rows.
+
+```{r newrows}
+country <- c("Switzerland", "France")
+lifeExpectancy <- c(88,81)
+population <- c(9000000,1191919)
+
+newCountryData <- data.frame(country, lifeExpectancy, population)
+
+# Adding this df to old df
+AllCountrydata <- rbind(countryData, newCountryData)
+AllCountrydata
+```
+## Reading data from a CSV file
+
+Let's now read a CSV file in our folder. Check your directory to see the generated file :).
+
+```{r readCSV}
+WHO <- read.csv("WHO.csv")
+WHO
+str(WHO)
+
+# We can even call a summary function
+summary(WHO)
+```
+
+## Taking only a small subset of DF
+
+What about taking smaller fractions of our data? Yes we can, using subset function.
+Afterward, we output this into "WHO_Europe.csv" file.
+
+```{r subset}
+WHO_Europe <- subset(WHO, Region == "Europe")
+str(WHO_Europe)
+
+# Storing this subset into a separate csv
+write.csv(WHO_Europe, "WHO_Eur.csv")
+
+# This line is used to check our variables
+ls()
+
+# We can also remove a specific variable by using rm()
+rm(countyrdata) #terribly misspelled
+
+```
+
+# Doing basic data analysis
+
+We can practice some data analysis in this exercise such as mean, etc.
+
+```{r analyses}
+WHO$Under15
+mean(WHO$Under15)
+# and std dev
+
+sd(WHO$Under15)
+
+# or specific variable
+summary(WHO$Under15)
+```
+
+## Can we index to a specific value? YES!
+
+For instance, can we identify, which country has the the lowest or highest value in Under15?
+Japan is the answer.
+
+```{r whichmin}
+which.min(WHO$Under15)
+which.max(WHO$Under15)
+# Now we use this as indexing
+
+WHO$Country[which.min(WHO$Under15)]
+WHO$Country[which.max(WHO$Under15)]
+```
+
+## Plotting world in R
+
+So, let's start with the scatter plot: the mother of all plots.
+
+```{r scatter}
+plot(x = WHO$GNI, y = WHO$FertilityRate)
+```
+## Managing outliers in dataframe, after seeing the plot
+```{r}
+
+```
+
+Can we spot the outliers from figure above? yep, of course!
+
+```{r outliers}
+outliers <- subset(WHO, GNI > 10000 & FertilityRate > 2.5)
+nrow(outliers) 
+
+# Then we output them
+outliers[c("Country", "GNI", "FertilityRate")]
+
+```
+## Answering some questions on the website
+
+These are just some lines to answer questions after the video. Feel free to skip.
+
+```{r answers}
+colnames(WHO)
+mean(WHO$Over60)
+WHO$Country[which.min(WHO$Over60)]
+WHO$Country[which.max(WHO$LiteracyRate)]
+```
+
+# Fun parts: Playing with statistical distributions on R.
+
+Here comes the interesting journey in R, how easy it is to build plots (somewhat complex in EXCEL) with only 1 - 2 lines of code.
+Embrace!
+
+```{r distr}
+hist(WHO$CellularSubscribers)
+boxplot(WHO$LifeExpectancy ~ WHO$Region)
+
+# we fix some labelling and title.
+boxplot(WHO$LifeExpectancy ~ WHO$Region, 
+        xlab = "", ylab = "Life Expectancy",
+        main = "Life Expectancy of Countries by Region")
+
+```
+# Creating a summary output in a table
+
+We can also create a table from our dataframe as the summary output.
+
+```{r summary}
+table(WHO$Region)
+
+```
+
+# Can we use it to find aggregated results? Ex: the percentage of pop over 60 in these regions. HOW?
+
+Yes, we use the function called tapply :) Behold.
+
+```{r tappl}
+tapply(WHO$Over60, WHO$Region, mean)
+
+# Lets then find other results
+tapply(WHO$LiteracyRate, WHO$Region, min, na.rm = TRUE)
+```
+
+## Answering questions from the course, part 2
+
+If you like, you can skip again this part.
+
+```{r answers2}
+tapply(WHO$ChildMortality, WHO$Region, min, na.rm = TRUE)
+```
+
+## The start of Recitation: USDA Nutritional Education, Understanding food
+
+Allright folks, now we enter the recitation part of this week. Are you ready?
+Yes, I am so pumped too. Let's get started!
+Of course, the first thing to do is to load the data
+
+```{r loadUSDA}
+USDA <- read.csv("USDA.csv")
+
+#and somwewhat mandatory steps in any EDA, Str and Summary
+str(USDA)
+summary(USDA)
+```
+
+## There is a weird number!
+
+The amount of sodium (max value) that summary function gives us is way too high.
+Let's find out what that is.
+
+```{r sodium}
+names(USDA)
+USDA$Description[which.max(USDA$Sodium)]
+
+```
+
+# What about high containing sodium?
+
+We can create a subset of data, using subset function indeed :)
+
+```{r sodsub}
+HiSodium <- subset(USDA, Sodium > 10000)
+nrow(HiSodium)
+HiSodium$Description
+```
+
+## Finding the sodium value of "CAVIAR"
+
+Yes, we can also filter using 'string' as input command.
+
+```{r caviar}
+match("CAVIAR", USDA$Description)
+USDA$Sodium[match("CAVIAR", USDA$Description)]
+
+# descriptive stas
+mean(USDA$Sodium, na.rm = T)
+sd(USDA$Sodium, na.rm = T)
+```
+
+## Entering the visualization part of week 1 USDA DATA
+
+Here we go, my favorite part totally!
+
+```{r viz}
+plot(USDA$Protein, USDA$TotalFat)
+plot(USDA$Protein, USDA$TotalFat, xlab = "Protein", ylab = "Fat",
+     main = "Protein vs Fat", col = "red")
+
+# Histogram of VItC Levels
+hist(USDA$VitaminC, xlab = "Vit C (mg)", main = "Histogram of Vit C level")
+hist(USDA$VitaminC, xlab = "Vit C (mg)", main = "Histogram of Vit C level", xlim = c(0,100), breaks = 2000)
+```
+
+## Plotting in boxplot
+
+We look at the sugar level now :)
+
+```{r bxplt}
+boxplot(USDA$Sugar, main = "Boxplot of Sugar Levels", ylab = "Sugar (g)")
+```
+## How about creating variables using logical data as results? Sure thing bro
+
+We can assign our logical results as numeric. See below.
+
+```{r variables}
+HighSodium <- USDA$Sodium > mean(USDA$Sodium, na.rm = TRUE)
+HighSodium
+
+# Assign them as numeric results: 1 or 0
+
+HighSodium <- as.numeric(USDA$Sodium > mean(USDA$Sodium, na.rm = TRUE))
+HighSodium
+
+# Then insert this into a new column
+USDA$HiSodium <- as.numeric(USDA$Sodium > mean(USDA$Sodium, na.rm = TRUE))
+str(USDA)
+
+# and do the same for other variables
+USDA$HiProtein <- as.numeric(USDA$Protein > mean(USDA$Protein, na.rm = TRUE))
+USDA$HiFat <- as.numeric(USDA$TotalFat > mean(USDA$TotalFat, na.rm = TRUE))
+USDA$HiCarbs <- as.numeric(USDA$Carbohydrate > mean(USDA$Carbohydrate, na.rm = TRUE))
+str(USDA)
+```
+
+## Creating a summary table from our previous results
+
+We can now summarize our analysis and present them in a chart.
+
+```{r table2}
+table(USDA$HiSodium, USDA$HiFat)
+```
+
+## Looking for specifics: Food that contains iron, can we calculate their average iron contents based on two groups of Hi Protein?
+
+Yes, why not!
+We use tapply for that.
+
+```{r tapp}
+tapply(USDA$Iron, USDA$HiProtein, mean, na.rm = TRUE)
+
+# With the same approach, to find max vit C between hi carb/ lo carb food
+tapply(USDA$VitaminC , USDA$HiCarbs, max, na.rm = TRUE)
+# we can even use summary!
+tapply(USDA$VitaminC , USDA$HiCarbs, summary, na.rm = TRUE)
+```
+

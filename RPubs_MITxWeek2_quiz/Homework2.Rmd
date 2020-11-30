@@ -1,0 +1,528 @@
+---
+title: "MITx_homeworkWeek2"
+author: "Raka"
+date: "10/4/2020"
+output: html_document
+---
+
+## Climate Change
+
+There have been many studies documenting that the average global temperature has been increasing over the last century. The consequences of a continued rise in global temperature will be dire. Rising sea levels and an increased frequency of extreme weather events will affect billions of people.
+
+In this problem, we will attempt to study the relationship between average global temperature and several other factors.
+
+The file climate_change.csv contains climate data from May 1983 to December 2008. The available variables include:
+
+    Year: the observation year.
+    Month: the observation month.
+    Temp: the difference in degrees Celsius between the average global temperature in that period and a reference value. This data comes from the Climatic Research Unit at the University of East Anglia.
+    CO2, N2O, CH4, CFC.11, CFC.12: atmospheric concentrations of carbon dioxide (CO2), nitrous oxide (N2O), methane  (CH4), trichlorofluoromethane (CCl3F; commonly referred to as CFC-11) and dichlorodifluoromethane (CCl2F2; commonly referred to as CFC-12), respectively. This data comes from the ESRL/NOAA Global Monitoring Division.
+        CO2, N2O and CH4 are expressed in ppmv (parts per million by volume  -- i.e., 397 ppmv of CO2 means that CO2 constitutes 397 millionths of the total volume of the atmosphere)
+        CFC.11 and CFC.12 are expressed in ppbv (parts per billion by volume). 
+    Aerosols: the mean stratospheric aerosol optical depth at 550 nm. This variable is linked to volcanoes, as volcanic eruptions result in new particles being added to the atmosphere, which affect how much of the sun's energy is reflected back into space. This data is from the Godard Institute for Space Studies at NASA.
+    TSI: the total solar irradiance (TSI) in W/m2 (the rate at which the sun's energy is deposited per unit area). Due to sunspots and other solar phenomena, the amount of energy that is given off by the sun varies substantially with time. This data is from the SOLARIS-HEPPA project website.
+    MEI: multivariate El Nino Southern Oscillation index (MEI), a measure of the strength of the El Nino/La Nina-Southern Oscillation (a weather effect in the Pacific Ocean that affects global temperatures). This data comes from the ESRL/NOAA Physical Sciences Division.
+
+
+```{r climch}
+clim_change <- read.csv("climate_change.csv")
+str(clim_change)
+```
+
+# Splitting test and train data
+
+Let's make them separated. 
+We are interested in how changes in these variables affect future temperatures, as well as how well these variables explain temperature changes so far. To do this, first read the dataset climate_change.csv into R.
+
+Then, split the data into a training set, consisting of all the observations up to and including 2006, and a testing set consisting of the remaining years (hint: use subset). A training set refers to the data that will be used to build the model (this is the data we give to the lm() function), and a testing set refers to the data we will use to test our predictive ability.
+
+Next, build a linear regression model to predict the dependent variable Temp, using MEI, CO2, CH4, N2O, CFC.11, CFC.12, TSI, and Aerosols as independent variables (Year and Month should NOT be used in the model). Use the training set to build the model.
+
+Enter the model R2 (the "Multiple R-squared" value):
+
+```{r splitt}
+
+train_cc <- subset(clim_change, Year <=2006)
+test_cc <- subset(clim_change, Year > 2006)
+
+RegTemp <- lm(Temp ~ MEI + CO2 + CH4 + N2O + CFC.11 + CFC.12 + TSI + Aerosols,
+              data = train_cc)
+summary(RegTemp)
+```
+
+# Understanding the model
+
+Current scientific opinion is that nitrous oxide and CFC-11 are greenhouse gases: gases that are able to trap heat from the sun and contribute to the heating of the Earth. However, the regression coefficients of both the N2O and CFC-11 variables are negative, indicating that increasing atmospheric concentrations of either of these two compounds is associated with lower global temperatures.
+
+Which of the following is the simplest correct explanation for this contradiction?
+- All variables are correlated with the others :)
+
+# Understanding the model 2
+
+Compute the correlations between all the variables in the training set. Which of the following independent variables is N2O highly correlated with (absolute correlation greater than 0.7)? Select all that apply.
+
+```{r corr}
+
+cor(train_cc)
+
+```
+
+# Simplifying the model
+
+Given that the correlations are so high, let us focus on the N2O variable and build a model with only MEI, TSI, Aerosols and N2O as independent variables. Remember to use the training set to build the model.
+
+Enter the coefficient of N2O in this reduced model:
+unanswered
+
+(How does this compare to the coefficient in the previous model with all of the variables?)
+
+Enter the model R2:
+
+```{r simpl}
+
+RegN2O <- lm(Temp ~ MEI + TSI + Aerosols + N2O, data = train_cc)
+summary(RegN2O)
+
+```
+
+# Automatically building the model
+
+We have many variables in this problem, and as we have seen above, dropping some from the model does not decrease model quality. R provides a function, step, that will automate the procedure of trying different combinations of variables to find a good compromise of model simplicity and R2. This trade-off is formalized by the Akaike information criterion (AIC) - it can be informally thought of as the quality of the model with a penalty for the number of variables in the model.
+
+The step function has one argument - the name of the initial model. It returns a simplified model. Use the step function in R to derive a new model, with the full model as the initial model (HINT: If your initial full model was called "climateLM", you could create a new model with the step function by typing step(climateLM). Be sure to save your new model to a variable name so that you can look at the summary. For more information about the step function, type ?step in your R console.)
+
+Enter the R2 value of the model produced by the step function:
+
+```{r stepf}
+
+Reg_wStep <- step(RegTemp)
+summary(Reg_wStep)
+```
+
+# Testing new data
+
+We have developed an understanding of how well we can fit a linear regression to the training data, but does the model quality hold when applied to unseen data?
+
+Using the model produced from the step function, calculate temperature predictions for the testing data set, using the predict function.
+
+Enter the testing set R2:
+
+```{r new}
+
+Pred_new <- predict(Reg_wStep, newdata = test_cc)
+SSE <- sum((test_cc$Temp - Pred_new)^2)
+SST <- sum((test_cc$Temp - mean(train_cc$Temp))^2)
+R_sq <- 1 - SSE/SST
+R_sq
+
+```
+
+## Part 2: Reading test scores
+
+The Programme for International Student Assessment (PISA) is a test given every three years to 15-year-old students from around the world to evaluate their performance in mathematics, reading, and science. This test provides a quantitative way to compare the performance of students from different parts of the world. In this homework assignment, we will predict the reading scores of students from the United States of America on the 2009 PISA exam.
+
+The datasets pisa2009train.csv and pisa2009test.csv contain information about the demographics and schools for American students taking the exam, derived from 2009 PISA Public-Use Data Files distributed by the United States National Center for Education Statistics (NCES). While the datasets are not supposed to contain identifying information about students taking the test, by using the data you are bound by the NCES data use agreement, which prohibits any attempt to determine the identity of any student in the datasets.
+
+Each row in the datasets pisa2009train.csv and pisa2009test.csv represents one student taking the exam. The datasets have the following variables:
+
+grade: The grade in school of the student (most 15-year-olds in America are in 10th grade)
+
+male: Whether the student is male (1/0)
+
+raceeth: The race/ethnicity composite of the student
+
+preschool: Whether the student attended preschool (1/0)
+
+expectBachelors: Whether the student expects to obtain a bachelor's degree (1/0)
+
+motherHS: Whether the student's mother completed high school (1/0)
+
+motherBachelors: Whether the student's mother obtained a bachelor's degree (1/0)
+
+motherWork: Whether the student's mother has part-time or full-time work (1/0)
+
+fatherHS: Whether the student's father completed high school (1/0)
+
+fatherBachelors: Whether the student's father obtained a bachelor's degree (1/0)
+
+fatherWork: Whether the student's father has part-time or full-time work (1/0)
+
+selfBornUS: Whether the student was born in the United States of America (1/0)
+
+motherBornUS: Whether the student's mother was born in the United States of America (1/0)
+
+fatherBornUS: Whether the student's father was born in the United States of America (1/0)
+
+englishAtHome: Whether the student speaks English at home (1/0)
+
+computerForSchoolwork: Whether the student has access to a computer for schoolwork (1/0)
+
+read30MinsADay: Whether the student reads for pleasure for 30 minutes/day (1/0)
+
+minutesPerWeekEnglish: The number of minutes per week the student spend in English class
+
+studentsInEnglish: The number of students in this student's English class at school
+
+schoolHasLibrary: Whether this student's school has a library (1/0)
+
+publicSchool: Whether this student attends a public school (1/0)
+
+urban: Whether this student's school is in an urban area (1/0)
+
+schoolSize: The number of students in this student's school
+
+readingScore: The student's reading score, on a 1000-point scale
+
+# Loading dataset and size
+
+Load the training and testing sets using the read.csv() function, and save them as variables with the names pisaTrain and pisaTest.
+
+How many students are there in the training set?
+
+```{r loadpisa}
+
+pisaTrain <- read.csv("pisa2009train.csv")
+pisaTest <- read.csv("pisa2009test.csv")
+nrow(pisaTrain)
+
+```
+
+# Summarizing dataset
+
+Using tapply() on pisaTrain, what is the average reading test score of males?
+Check this link for tapply:
+http://makemeanalyst.com/r-programming/loop-functions/tapply/
+1 = male
+0 = female
+
+```{r tapplyy}
+str(pisaTrain)
+tapply(pisaTrain$readingScore, pisaTrain$male, FUN = mean)
+
+summary(pisaTrain)
+
+```
+
+# Removing missing Values with na.omit
+
+Linear regression discards observations with missing data, so we will remove all such observations from the training and testing sets. Later in the course, we will learn about imputation, which deals with missing data by filling in missing values with plausible information.
+
+Type the following commands into your R console to remove observations with any missing value from pisaTrain and pisaTest:
+
+pisaTrain = na.omit(pisaTrain)
+
+pisaTest = na.omit(pisaTest)
+
+How many observations are now in the training set?
+
+```{r omits}
+
+pisaTrain <- na.omit(pisaTrain)
+pisaTest <- na.omit(pisaTest)
+
+```
+
+# Factor variables
+
+Factor variables are variables that take on a discrete set of values, like the "Region" variable in the WHO dataset from the second lecture of Unit 1. This is an unordered factor because there isn't any natural ordering between the levels. An ordered factor has a natural ordering between the levels (an example would be the classifications "large," "medium," and "small").
+
+Which of the following variables is an unordered factor with at least 3 levels? (Select all that apply.)
+
+```{r factsr}
+
+str(pisaTrain)
+
+pisaTrain$raceeth <- as.factor(pisaTrain$raceeth)
+
+class(pisaTrain$raceeth)
+str(pisaTrain)
+summary(pisaTrain)
+```
+
+# Underodered factors in regression models
+
+To include unordered factors in a linear regression model, we define one level as the "reference level" and add a binary variable for each of the remaining levels. In this way, a factor with n levels is replaced by n-1 binary variables. The reference level is typically selected to be the most frequently occurring level in the dataset.
+
+As an example, consider the unordered factor variable "color", with levels "red", "green", and "blue". If "green" were the reference level, then we would add binary variables "colorred" and "colorblue" to a linear regression problem. All red examples would have colorred=1 and colorblue=0. All blue examples would have colorred=0 and colorblue=1. All green examples would have colorred=0 and colorblue=0.
+
+Now, consider the variable "raceeth" in our problem, which has levels "American Indian/Alaska Native", "Asian", "Black", "Hispanic", "More than one race", "Native Hawaiian/Other Pacific Islander", and "White". Because it is the most common in our population, we will select White as the reference level.
+
+Which binary variables will be included in the regression model? (Select all that apply.)
+
+
+# Building a model
+
+Because the race variable takes on text values, it was loaded as a factor variable when we read in the dataset with read.csv() -- you can see this when you run str(pisaTrain) or str(pisaTest). However, by default R selects the first level alphabetically ("American Indian/Alaska Native") as the reference level of our factor instead of the most common level ("White"). Set the reference level of the factor by typing the following two lines in your R console:
+
+pisaTrain$raceeth = relevel(pisaTrain$raceeth, "White")
+
+pisaTest$raceeth = relevel(pisaTest$raceeth, "White")
+
+Now, build a linear regression model (call it lmScore) using the training set to predict readingScore using all the remaining variables.
+
+It would be time-consuming to type all the variables, but R provides the shorthand notation "readingScore ~ ." to mean "predict readingScore using all the other variables in the data frame." The period is used to replace listing out all of the independent variables. As an example, if your dependent variable is called "Y", your independent variables are called "X1", "X2", and "X3", and your training data set is called "Train", instead of the regular notation:
+
+LinReg = lm(Y ~ X1 + X2 + X3, data = Train)
+
+You would use the following command to build your model:
+
+LinReg = lm(Y ~ ., data = Train)
+
+What is the Multiple R-squared value of lmScore on the training set?
+
+```{r unrnd}
+
+# RELEVELLING   
+
+str(pisaTrain)
+str(pisaTest)
+pisaTrain$raceeth <- relevel(pisaTrain$raceeth, "White")
+pisaTest$raceeth <- as.factor(pisaTest$raceeth)
+
+pisaTest$raceeth <- relevel(pisaTest$raceeth, "White")
+
+# https://stackoverflow.com/questions/33180058/coerce-multiple-columns-to-factors-at-once
+str(pisaTrain)
+str(pisaTest)
+
+lmScore <- lm(readingScore ~ ., data = pisaTrain)
+
+summary(lmScore)
+```
+
+# RMSE?
+
+What is the training-set root-mean squared error (RMSE) of lmScore?
+
+```{r rms}
+
+lmScore$residuals
+
+# I would calculate RMSE by sqrt(sum(res$residuals^2) / res$df): https://stackoverflow.com/questions/43123462/how-to-obtain-rmse-out-of-lm-result
+RMSE <- sqrt(sum(lmScore$residuals^2) / lmScore$df.residual)
+RMSE
+
+```
+
+# Predict
+
+Using the "predict" function and supplying the "newdata" argument, use the lmScore model to predict the reading scores of students in pisaTest. Call this vector of predictions "predTest". Do not change the variables in the model (for example, do not remove variables that we found were not significant in the previous part of this problem). Use the summary function to describe the test set predictions.
+
+What is the range between the maximum and minimum predicted reading score on the test set?
+
+```{r predictt}
+
+library(caret)
+predicTed <- predict(lmScore, newdata = pisaTest)
+
+summary(predicTed)
+max(predicTed) - min(predicTed)
+
+# SSE on testing dataset
+
+SSE_1 <- sum((predicTed - pisaTest$readingScore)^2)
+SSE_1
+RMSE_1 <- sqrt(mean((predicTed - pisaTest$readingScore)^2))
+RMSE_1
+
+baseline <- mean(pisaTrain$readingScore)
+baseline
+
+
+SST <- sum((pisaTest$readingScore - mean(pisaTrain$readingScore))^2)
+SST
+R_sq <- 1 - SSE_1/SST
+R_sq
+```
+
+## Flue epidemics chapter
+
+Before applying analytics tools on the training set, we first need to understand the data at hand. Load "FluTrain.csv" into a data frame called FluTrain. Looking at the time period 2004-2011, which week corresponds to the highest percentage of ILI-related physician visits? Select the day of the month corresponding to the start of this week.
+
+```{r flu}
+
+FluTrain <- read.csv("FluTrain.csv")
+str(FluTrain)
+
+hi_per <- subset(FluTrain, ILI == max(ILI))
+hi_per
+```
+
+# Understanding the data
+
+Let us now understand the data at an aggregate level. Plot the histogram of the dependent variable, ILI. What best describes the distribution of values of ILI?
+
+```{r hst}
+
+hist(FluTrain$ILI)
+
+```
+# plot nat log of ILI vs queries
+
+When handling a skewed dependent variable, it is often useful to predict the logarithm of the dependent variable instead of the dependent variable itself -- this prevents the small number of unusually large or small observations from having an undue influence on the sum of squared errors of predictive models. In this problem, we will predict the natural log of the ILI variable, which can be computed in R using the log() function.
+
+Plot the natural logarithm of ILI versus Queries. What does the plot suggest?. 
+
+```{r natlog}
+
+plot(x = FluTrain$Queries, y = log(FluTrain$ILI))
+
+```
+
+# Linear Regression Model! 
+
+Based on the plot we just made, it seems that a linear regression model could be a good modeling choice. Based on our understanding of the data from the previous subproblem, which model best describes our estimation problem?
+
+```{r linmod}
+
+FluTrend1 <- lm(log(ILI) ~ Queries, data = FluTrain)
+summary(FluTrend1)
+
+cor(x = FluTrain$Queries, y = log(FluTrain$ILI))
+0.8420333^2
+```
+
+# Test set
+
+The csv file FluTest.csv provides the 2012 weekly data of the ILI-related search queries and the observed weekly percentage of ILI-related physician visits. Load this data into a data frame called FluTest.
+
+Normally, we would obtain test-set predictions from the model FluTrend1 using the code
+
+PredTest1 = predict(FluTrend1, newdata=FluTest)
+
+However, the dependent variable in our model is log(ILI), so PredTest1 would contain predictions of the log(ILI) value. We are instead interested in obtaining predictions of the ILI value. We can convert from predictions of log(ILI) to predictions of ILI via exponentiation, or the exp() function. The new code, which predicts the ILI value, is
+
+PredTest1 = exp(predict(FluTrend1, newdata=FluTest))
+
+What is our estimate for the percentage of ILI-related physician visits for the week of March 11, 2012? (HINT: You can either just output FluTest$Week to find which element corresponds to March 11, 2012, or you can use the "which" function in R. To learn more about the which function, type ?which in your R console.)
+
+```{r tst}
+
+FluTest <- read.csv("FluTest.csv")
+PredTest1 <- exp(predict(FluTrend1, newdata = FluTest))
+
+FluTest$Week
+which(FluTest$Week == "2012-03-11 - 2012-03-17")
+PredTest1[which(FluTest$Week == "2012-03-11 - 2012-03-17")]
+```
+
+# Relative Error
+
+What is the relative error betweeen the estimate (our prediction) and the observed value for the week of March 11, 2012? Note that the relative error is calculated as
+
+(Observed ILI - Estimated ILI)/Observed ILI
+
+```{r relerror}
+
+Obs_ILI <- FluTest$ILI[which(FluTest$Week == "2012-03-11 - 2012-03-17")]
+Est_ILI <- PredTest1[which(FluTest$Week == "2012-03-11 - 2012-03-17")]
+Rel_error <- (Obs_ILI - Est_ILI)/ Obs_ILI
+Rel_error
+```
+
+# RMSE
+
+What is the Root Mean Square Error (RMSE) between our estimates and the actual observations for the percentage of ILI-related physician visits, on the test set?
+
+```{r rmse}
+
+rmse_2 <- sqrt(mean((PredTest1 - FluTest$ILI)^2))
+rmse_2
+
+```
+
+
+# Time series in the model
+
+To do so, we will use the "zoo" package, which provides a number of helpful methods for time series models. While many functions are built into R, you need to add new packages to use some functions. New packages can be installed and loaded easily in R, and we will do this many times in this class. Run the following two commands to install and load the zoo package. In the first command, you will be prompted to select a CRAN mirror to use for your download. Select a mirror near you geographically.
+
+install.packages("zoo")
+
+library(zoo)
+
+After installing and loading the zoo package, run the following commands to create the ILILag2 variable in the training set:
+
+ILILag2 = lag(zoo(FluTrain$ILI), -2, na.pad=TRUE)
+
+FluTrain$ILILag2 = coredata(ILILag2)
+
+In these commands, the value of -2 passed to lag means to return 2 observations before the current one; a positive value would have returned future observations. The parameter na.pad=TRUE means to add missing values for the first two weeks of our dataset, where we can't compute the data from 2 weeks earlier.
+
+How many values are missing in the new ILILag2 variable?
+
+```{r wizoo}
+
+library(zoo)
+
+ILILag2 <- lag(zoo(FluTrain$ILI), -2, na.pad=TRUE)
+FluTrain$ILILag2 <- coredata(ILILag2)
+
+plot(x = log(FluTrain$ILI), y = log(FluTrain$ILILag2))
+
+```
+# Training a time series model
+
+Train a linear regression model on the FluTrain dataset to predict the log of the ILI variable using the Queries variable as well as the log of the ILILag2 variable. Call this model FluTrend2.
+
+Which coefficients are significant at the p=0.05 level in this regression model? (Select all that apply.)
+
+```{r tseritrainig}
+
+FluTrend2 <- lm(log(ILI) ~ Queries + log(ILILag2), data = FluTrain)
+summary(FluTrend2)
+summary(FluTrend1)
+```
+
+# Problem 5.1 Time series on Test set
+
+So far, we have only added the ILILag2 variable to the FluTrain data frame. To make predictions with our FluTrend2 model, we will also need to add ILILag2 to the FluTest data frame (note that adding variables before splitting into a training and testing set can prevent this duplication of effort).
+
+Modify the code from the previous subproblem to add an ILILag2 variable to the FluTest data frame. How many missing values are there in this new variable?
+
+```{r timseries}
+
+ILILag2.1 <- lag(zoo(FluTest$ILI), -2, na.pad=TRUE)
+FluTest$ILILag2.1 <- coredata(ILILag2.1)
+
+```
+
+# Evaluating time series
+
+Fill in the missing values for ILILag2 in FluTest. In terms of syntax, you could set the value of ILILag2 in row "x" of the FluTest data frame to the value of ILI in row "y" of the FluTrain data frame with "FluTest$ILILag2[x] = FluTrain$ILI[y]". Use the answer to the previous questions to determine the appropriate values of "x" and "y". It may be helpful to check the total number of rows in FluTrain using str(FluTrain) or nrow(FluTrain).
+
+What is the new value of the ILILag2 variable in the first row of FluTest?
+
+```{r evv}
+
+str(FluTrain)
+nrow(FluTrain)
+
+#Thus
+
+FluTest$ILILag2.1[1] = FluTrain$ILI[416]
+FluTrain$ILI[416]
+FluTest$ILILag2.1[2] = FluTrain$ILI[417]
+FluTrain$ILI[417]
+```
+
+# Time series perform test
+
+Obtain test set predictions of the ILI variable from the FluTrend2 model, again remembering to call the exp() function on the result of the predict() function to obtain predictions for ILI instead of log(ILI).
+
+What is the test-set RMSE of the FluTrend2 model?
+
+```{r teser}
+
+colnames(FluTest)[colnames(FluTest) == 'ILILag2.1'] <- 'ILILag2'
+
+PredTest2 <- exp(predict(FluTrend2, newdata = FluTest))
+
+RMSE_2 <- sqrt(mean((PredTest2 - FluTest$ILI)^2))
+RMSE_2
+```
+
+In this problem, we used a simple time series model with a single lag term. ARIMA models are a more general form of the model we built, which can include multiple lag terms as well as more complicated combinations of previous values of the dependent variable. If you're interested in learning more, check out ?arima or the available online tutorials for these sorts of models.
+
+ASSIGNMENT OFFICIALLY ENDS HERE -- Optional tasks 2 more! if you wish
+
+

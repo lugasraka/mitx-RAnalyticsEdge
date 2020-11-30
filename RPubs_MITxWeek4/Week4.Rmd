@@ -1,0 +1,468 @@
+---
+title: "MITx_4_Trees"
+author: "Raka"
+date: "10/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Understanding why people vote?
+In August 2006 three researchers (Alan Gerber and Donald Green of Yale University, and Christopher Larimer of the University of Northern Iowa) carried out a large scale field experiment in Michigan, USA to test the hypothesis that one of the reasons people vote is social, or extrinsic, pressure. To quote the first paragraph of their 2008 research paper:
+
+    Among the most striking features of a democratic political system is the participation of millions of voters in elections. Why do large numbers of people vote, despite the fact that ... "the casting of a single vote is of no significance where there is a multitude of electors"? One hypothesis is adherence to social norms. Voting is widely regarded as a citizen duty, and citizens worry that others will think less of them if they fail to participate in elections. Voters' sense of civic duty has long been a leading explanation of vote turnout...
+
+We will first get familiar with the data. Load the CSV file gerber.csv into R. What proportion of people in this dataset voted in this election?
+
+```{r dataset}
+vote <- read.csv("gerber.csv")
+str(vote)
+summary(vote)
+table(vote$voting)/nrow(vote)
+```
+
+# Finding the largest voter group
+
+Which of the four "treatment groups" had the largest percentage of people who actually voted (voting = 1)?
+
+```{r largest}
+
+table(vote$voting, vote$hawthorne)/ nrow(vote)
+table(vote$voting, vote$civicduty)/ nrow(vote)
+table(vote$voting, vote$neighbors)/ nrow(vote)
+table(vote$voting, vote$self)/ nrow(vote)
+table(vote$voting, vote$control)/ nrow(vote)
+```
+
+# Exploration and logistic regression
+
+Build a logistic regression model for voting using the four treatment group variables as the independent variables (civicduty, hawthorne, self, and neighbors). Use all the data to build the model (DO NOT split the data into a training set and testing set). Which of the following coefficients are significant in the logistic regression model? Select all that apply.
+
+```{r logistic}
+
+logVote <- glm(voting ~ civicduty + hawthorne + self + neighbors, data = vote, family = binomial)
+summary(logVote)
+```
+
+# Prediction
+
+Using a threshold of 0.3, what is the accuracy of the logistic regression model? (When making predictions, you don't need to use the newdata argument since we didn't split our data.)
+
+```{r predd}
+predicted <- predict(logVote, type = 'response')
+# confusion matrix
+table(vote$voting, predicted > 0.3)
+(134513+51966)/nrow(vote)
+
+# with higher threshold
+table(vote$voting, predicted > 0.5)
+(235388)/nrow(vote)
+```
+
+# Area under Curve with ROCR
+
+Compare your previous two answers to the percentage of people who did not vote (the baseline accuracy) and compute the AUC of the model. What is happening here?
+
+```{r AUCs}
+library(ROCR)
+ROCRpred <- prediction(predicted, vote$voting)
+as.numeric(performance(ROCRpred, "auc")@y.values)
+```
+
+# Problem 2: TREES
+
+We will now try out trees. Build a CART tree for voting using all data and the same four treatment variables we used before. Don't set the option method="class" - we are actually going to create a regression tree here. We are interested in building a tree to explore the fraction of people who vote, or the probability of voting. We’d like CART to split our groups if they have different probabilities of voting. If we used method=‘class’, CART would only split if one of the groups had a probability of voting above 50% and the other had a probability of voting less than 50% (since the predicted outcomes would be different). However, with regression trees, CART will split even if both groups have probability less than 50%.
+
+Leave all the parameters at their default values. You can use the following command in R to build the tree:
+
+```{r carts}
+library(rpart)
+library(rpart.plot)
+CARTmodel <- rpart(voting ~ civicduty + hawthorne + self + neighbors, data=vote)
+prp(CARTmodel)
+
+# repeat with other model, prev result was bad
+
+CARTmodel2 <-  rpart(voting ~ civicduty + hawthorne + self + neighbors, data=vote, cp=0.0)
+prp(CARTmodel2)
+
+# Another model with sex
+
+CARTmodel3 <-  rpart(voting ~ civicduty + hawthorne + self + neighbors + sex, data=vote, cp=0.0)
+prp(CARTmodel3)
+
+```
+# Interaction terms
+
+We know trees can handle "nonlinear" relationships, e.g. "in the 'Civic Duty' group and female", but as we will see in the next few questions, it is possible to do the same for logistic regression. First, let's explore what trees can tell us some more.
+
+Let's just focus on the "Control" treatment group. Create a regression tree using just the "control" variable, then create another tree with the "control" and "sex" variables, both with cp=0.0.
+
+In the "control" only tree, what is the absolute value of the difference in the predicted probability of voting between being in the control group versus being in a different group? You can use the absolute value function to get answer, i.e. abs(Control Prediction - Non-Control Prediction). Add the argument "digits = 6" to the prp command to get a more accurate estimate.
+
+```{r}
+CARTmodel4 <- rpart(voting ~ control, data=vote, cp = 0.0)
+prp(CARTmodel4, digits = 6)
+abs(0.296638 - 0.34)
+
+CARTmodel5 <- rpart(voting ~ control + sex, data=vote, cp = 0.0)
+prp(CARTmodel5, digits = 6)
+
+# Back to regression model
+LogReg2 <- glm(voting ~ control + sex, data = vote, family = binomial)
+summary(LogReg2)
+```
+
+# Interaction terms 2
+
+The regression tree calculated the percentage voting exactly for every one of the four possibilities (Man, Not Control), (Man, Control), (Woman, Not Control), (Woman, Control). However, logistic regression on the "sex" and "control" variables considers these variables separately, not jointly, and therefore did not do as well.
+
+We can quantify this precisely. Create the following dataframe (this contains all of the possible values of sex and control), and evaluate your logistic regression using the predict function (where "LogModelSex" is the name of your logistic regression model that uses both control and sex):
+
+```{r regR2}
+Possibilities <-  data.frame(sex=c(0,0,1,1),control=c(0,1,0,1))
+predict(LogReg2, newdata=Possibilities, type="response")
+
+# the diff
+abs(0.2908065 - 0.290456)
+```
+
+# Interaction terms 3
+
+So the difference is not too big for this dataset, but it is there. We're going to add a new term to our logistic regression now, that is the combination of the "sex" and "control" variables - so if this new variable is 1, that means the person is a woman AND in the control group. We can do that with the following command:
+
+```{r intr}
+# combination of sex and control together
+LogModel2 <-  glm(voting ~ sex + control + sex:control, data=vote, family="binomial")
+summary(LogModel2)
+
+predicted_2 <- predict(LogModel2, newdata=Possibilities, type="response")
+predicted_2
+abs(0.2904558 - 0.290456)
+```
+
+## Letter Recognition
+
+Let's warm up by attempting to predict just whether a letter is B or not. To begin, load the file letters_ABPR.csv into R, and call it letters. Then, create a new variable isB in the dataframe, which takes the value "TRUE" if the observation corresponds to the letter B, and "FALSE" if it does not. You can do this by typing the following command into your R console:
+
+letters$isB = as.factor(letters$letter == "B")
+
+Now split the data set into a training and testing set, putting 50% of the data in the training set. Set the seed to 1000 before making the split. The first argument to sample.split should be the dependent variable "letters$isB". Remember that TRUE values from sample.split should go in the training set.
+
+Before building models, let's consider a baseline method that always predicts the most frequent outcome, which is "not B". What is the accuracy of this baseline method on the test set?
+
+```{r letters}
+library(caTools)
+letters <- read.csv("letters_ABPR.csv")
+str(letters)
+letters$isB = as.factor(letters$letter == "B")
+str(letters)
+
+set.seed(1000)
+split_letters <- sample.split(letters$isB, SplitRatio = 0.5)
+
+train_letters <- subset(letters, split_letters == TRUE)
+test_letters <- subset(letters, split_letters == FALSE)
+
+table(test_letters$isB)/nrow(test_letters)
+```
+
+# Predicting B or not B
+
+Now build a classification tree to predict whether a letter is a B or not, using the training set to build your model. Remember to remove the variable "letter" out of the model, as this is related to what we are trying to predict! To just remove one variable, you can either write out the other variables, or remember what we did in the Billboards problem in Week 3, and use the following notation:
+
+CARTb = rpart(isB ~ . - letter, data=train, method="class")
+
+We are just using the default parameters in our CART model, so we don't need to add the minbucket or cp arguments at all. We also added the argument method="class" since this is a classification problem.
+
+What is the accuracy of the CART model on the test set? (Use type="class" when making predictions on the test set.)
+
+```{r bornot}
+CARTb <-  rpart(isB ~ . - letter, data=train_letters, method="class")
+pred_cartB <- predict(CARTb, newdata = test_letters, type = 'class')
+
+table(pred_cartB, test_letters$isB)
+(1118+340)/nrow(test_letters)
+```
+
+# Random Forest to predict model
+
+Now, build a random forest model to predict whether the letter is a B or not (the isB variable) using the training set. You should use all of the other variables as independent variables, except letter (since it helped us define what we are trying to predict!). Use the default settings for ntree and nodesize (don't include these arguments at all). Right before building the model, set the seed to 1000. (NOTE: You might get a slightly different answer on this problem, even if you set the random seed. This has to do with your operating system and the implementation of the random forest algorithm.)
+
+What is the accuracy of the model on the test set?
+
+```{r rndforest}
+library(randomForest)
+RForestB <- randomForest(isB ~ . - letter, data=train_letters)
+Pred_RforestB <- predict(RForestB, newdata = test_letters)
+table(Pred_RforestB, test_letters$isB)
+(1164+374)/nrow(test_letters)
+
+```
+
+# Predicting letters A B P R
+
+Predicting the letters A, B, P, R
+0.0/2.0 points (graded)
+
+Let us now move on to the problem that we were originally interested in, which is to predict whether or not a letter is one of the four letters A, B, P or R.
+
+As we saw in the D2Hawkeye lecture, building a multiclass classification CART model in R is no harder than building the models for binary classification problems. Fortunately, building a random forest model is just as easy.
+
+The variable in our data frame which we will be trying to predict is "letter". Start by converting letter in the original data set (letters) to a factor by running the following command in R:
+
+letters$letter = as.factor( letters$letter )
+
+Now, generate new training and testing sets of the letters data frame using letters$letter as the first input to the sample.split function. Before splitting, set your seed to 2000. Again put 50% of the data in the training set. (Why do we need to split the data again? Remember that sample.split balances the outcome variable in the training and testing sets. With a new outcome variable, we want to re-generate our split.)
+
+In a multiclass classification problem, a simple baseline model is to predict the most frequent class of all of the options.
+
+What is the baseline accuracy on the testing set?
+
+```{r lettersAB}
+library(kableExtra)
+letters$letter <- as.factor(letters$letter) 
+str(letters)
+
+set.seed(2000)
+split_2 <- sample.split(letters$letter, SplitRatio = 0.5)
+
+train_2 <- subset(letters, split_2 == TRUE)
+
+test_2 <- subset(letters, split_2 == FALSE)
+str(test_2)
+
+#Accuracy of baseline
+table(test_2$letter)
+sum(401)/nrow(test_2)
+
+y <- table(test_2$letter)
+```
+
+
+```{r lettersAB2}
+kable(y)
+max(diag(y))/sum(y)
+
+```
+
+# CART model for letters
+
+Now build a classification tree to predict "letter", using the training set to build your model. You should use all of the other variables as independent variables, except "isB", since it is related to what we are trying to predict! Just use the default parameters in your CART model. Add the argument method="class" since this is a classification problem. Even though we have multiple classes here, nothing changes in how we build the model from the binary case.
+
+What is the test set accuracy of your CART model? Use the argument type="class" when making predictions.
+
+(HINT: When you are computing the test set accuracy using the confusion matrix, you want to add everything on the main diagonal and divide by the total number of observations in the test set, which can be computed with nrow(test), where test is the name of your test set). 
+
+```{r lettersCART}
+
+CARTc <- rpart(letter ~ . - isB, data = train_2)
+predicted3 <- predict(CARTc, newdata = test_2, type = 'class')
+table(predicted3, test_2$letter)
+(354+309+362+352)/nrow(test_2)
+
+```
+
+# While using randomForest
+
+Now build a random forest model on the training data, using the same independent variables as in the previous problem -- again, don't forget to remove the isB variable. Just use the default parameter values for ntree and nodesize (you don't need to include these arguments at all). Set the seed to 1000 right before building your model. (Remember that you might get a slightly different result even if you set the random seed.)
+
+What is the test set accuracy of your random forest model? 
+
+```{r nowRf}
+
+RanFor2 <- randomForest(letter ~ . - isB, data = train_2)
+predRF_2 <- predict(RanFor2, newdata = test_2)
+table(predRF_2, test_2$letter)
+
+z <- table(predRF_2, test_2$letter)
+acc_RF <- sum(diag(z))/sum(z)
+acc_RF
+```
+
+## Predicting Earnings from Census Data
+
+The United States government periodically collects demographic information by conducting a census.
+
+In this problem, we are going to use census information about an individual to predict how much a person earns -- in particular, whether the person earns more than $50,000 per year. This data comes from the UCI Machine Learning Repository.
+
+```{r earnings}
+
+census <- read.csv("census.csv")
+census$over50k <- ifelse(census$over50k == " <=50K", 0, 1)
+str(census)
+summary(census)
+
+# Splitting the data
+set.seed(2000)
+split_census <- sample.split(census$over50k, SplitRatio = 0.6)
+
+train_census <- subset(census, split_census == TRUE)
+
+test_census <- subset(census, split_census == FALSE)
+
+# Logistic regression 
+
+logCensus <- glm(over50k ~ ., family = "binomial", data = train_census)
+summary(logCensus)
+```
+
+# Logistic Regression Model
+
+What is the accuracy of the model on the testing set? Use a threshold of 0.5. (You might see a warning message when you make predictions on the test set - you can safely ignore it.)
+
+```{r logRESt}
+
+predLogEarnings <- predict(logCensus, newdata = test_census, type = "response")
+table(test_census$over50k, predLogEarnings >= 0.5)
+(9051+1888)/nrow(test_census)
+
+# Baseline accuracy
+table(test_census$over50k)/nrow(test_census)
+```
+
+# AUC with ROCR Package
+
+What is the area-under-the-curve (AUC) for this model on the test set?
+
+```{r ACU2}
+library(ROCR)
+
+ROCRpred <- prediction(predLogEarnings, test_census$over50k)
+as.numeric(performance(ROCRpred, "auc")@y.values)
+
+perf1 <- performance(ROCRpred, "tpr", "fpr")
+plot(perf1)
+
+```
+
+# Start of CART Model
+
+We have just seen how the logistic regression model for this data achieves a high accuracy. Moreover, the significances of the variables give us a way to gauge which variables are relevant for this prediction task. However, it is not immediately clear which variables are more important than the others, especially due to the large number of factor variables in this problem.
+
+Let us now build a classification tree to predict "over50k". Use the training set to build the model, and all of the other variables as independent variables. Use the default parameters, so don't set a value for minbucket or cp. Remember to specify method="class" as an argument to rpart, since this is a classification problem. After you are done building the model, plot the resulting tree.
+
+How many splits does the tree have in total?
+
+```{r cartree}
+
+censusTree <- rpart(over50k ~ ., data = train_census, method = "class")
+prp(censusTree)
+
+# Accuracy
+
+predTreeCensus <- predict(censusTree, newdata = test_census, type = "class")
+table(predTreeCensus, test_census$over50k)
+(9243+1596)/nrow(test_census)
+
+```
+# ROC curve
+
+Let us now consider the ROC curve and AUC for the CART model on the test set. You will need to get predicted probabilities for the observations in the test set to build the ROC curve and compute the AUC. Remember that you can do this by removing the type="class" argument when making predictions, and taking the second column of the resulting object.
+
+Plot the ROC curve for the CART model you have estimated. Observe that compared to the logistic regression ROC curve, the CART ROC curve is less smooth than the logistic regression ROC curve. Which of the following explanations for this behavior is most correct? (HINT: Think about what the ROC curve is plotting and what changing the threshold does.)
+
+```{r rocurve}
+
+predROC2 <- predict(censusTree, newdata = test_census)
+ROCpred2 <- prediction(predROC2[,2], test_census$over50k)
+as.numeric(performance(ROCpred2, "auc")@y.values)
+
+# Lets now plot the curve
+perf <- performance(ROCpred2, "tpr", "fpr")
+plot(perf)
+```
+
+# Random Forest Model
+
+Before building a random forest model, we'll down-sample our training set. While some modern personal computers can build a random forest model on the entire training set, others might run out of memory when trying to train the model since random forests is much more computationally intensive than CART or Logistic Regression. For this reason, before continuing we will define a new training set to be used when building our random forest model, that contains 2000 randomly selected obervations from the original training set. Do this by running the following commands in your R console (assuming your training set is called "train"):
+
+set.seed(1)
+
+trainSmall = train[sample(nrow(train), 2000), ]
+
+```{r rfSMALL}
+set.seed(1)
+
+trainSmall <-  train_census[sample(nrow(train_census), 2000), ]
+str(trainSmall)
+trainSmall$over50k <- as.factor(trainSmall$over50k)
+
+RF_census <- randomForest(over50k ~ ., data = trainSmall)
+predRCcensus <- predict(RF_census, newdata = test_census)
+table(predRCcensus, test_census$over50k)
+(9146+1611)/nrow(test_census)
+```
+
+# Random Forest Model 2
+
+As we discussed in lecture, random forest models work by building a large collection of trees. As a result, we lose some of the interpretability that comes with CART in terms of seeing how predictions are made and which variables are important. However, we can still compute metrics that give us insight into which variables are important.
+
+One metric that we can look at is the number of times, aggregated over all of the trees in the random forest model, that a certain variable is selected for a split. To view this metric, run the following lines of R code (replace "MODEL" with the name of your random forest model):
+
+```{r erefr2}
+
+vu <- varUsed(RF_census, count=TRUE)
+
+vusorted <-  sort(vu, decreasing = FALSE, index.return = TRUE)
+
+dotchart(vusorted$x, names(RF_census$forest$xlevels[vusorted$ix]))
+
+```
+
+# Random Forest 3
+
+A different metric we can look at is related to "impurity", which measures how homogenous each bucket or leaf of the tree is. In each tree in the forest, whenever we select a variable and perform a split, the impurity is decreased. Therefore, one way to measure the importance of a variable is to average the reduction in impurity, taken over all the times that variable is selected for splitting in all of the trees in the forest. To compute this metric, run the following command in R (replace "MODEL" with the name of your random forest model):
+
+varImpPlot(MODEL)
+
+Which one of the following variables is the most important in terms of mean reduction in impurity?
+
+```{r impurity}
+
+varImpPlot(RF_census)
+
+```
+
+# set cp by CROSS VALIDATION
+
+We now conclude our study of this data set by looking at how CART behaves with different choices of its parameters.
+
+Let us select the cp parameter for our CART model using k-fold cross validation, with k = 10 folds. Do this by using the train function. Set the seed beforehand to 2. Test cp values from 0.002 to 0.1 in 0.002 increments, by using the following command:
+
+cartGrid = expand.grid( .cp = seq(0.002,0.1,0.002))
+
+Also, remember to use the entire training set "train" when building this model. The train function might take some time to run.
+
+Which value of cp does the train function recommend?
+
+```{r cv}
+library(caret)
+numFolds <- trainControl(method = "cv", number = 10)
+cartGrid <- expand.grid( .cp = seq(0.002,0.1,0.002)) 
+str(train_census)
+train_census$over50k <- as.factor(train_census$over50k)
+
+
+train(over50k ~ ., data = train_census, method = "rpart", trControl = numFolds, tuneGrid = cartGrid)
+
+```
+
+# Using the selected cp
+
+Fit a CART model to the training data using this value of cp. What is the prediction accuracy on the test set?
+
+```{r newcp}
+
+CART_upd <- rpart(over50k ~ ., data = train_census, method = "class", cp = 0.002)
+pred_upt <- predict(CART_upd, newdata = test_census, type = "class")
+table(pred_upt, test_census$over50k)
+(9178+1838)/nrow(test_census)
+
+prp(CART_upd)
+
+```
+
+

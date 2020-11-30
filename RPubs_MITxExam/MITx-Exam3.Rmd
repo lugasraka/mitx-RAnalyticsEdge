@@ -1,0 +1,157 @@
+---
+title: "MITx-Exam3"
+author: "Raka"
+date: "11/30/2020"
+output: html_document
+---
+
+## Exam 3: Understanding User Ratings
+
+
+
+In this problem, we will use a dataset comprised of google reviews on attractions from 23 categories. Google user ratings range from 1 to 5 and average user ratings per category is pre-calculated. The data set is populated by capturing user ratings from Google reviews. Reviews on attractions from 23 categories across Europe are considered.  Each observation represents a user.
+
+Dataset: ratings.csv
+
+Our dataset has the following columns:
+
+    userId: a unique integer identifying a user
+    churches, resorts, beaches,..,monuments, gardens: the average rating that this user has rated any attraction corresponding to these categories.  For example, the user with userID = User 1 has parks = 3.65, which means that the average rating of all the parks this user rated is 3.65.  It can be assumed that if an average rating is 0, then that is the average rating. It is not the case that the user has not rated that category.
+
+In this problem, we aim to cluster users by their average rating per category. Hence, users in the same cluster tend to enjoy or dislike the same categories.
+
+```{r}
+
+ratings <- read.csv("ratings.csv")
+str(ratings)
+summary(ratings)
+
+# removing missing values
+
+ratings <- ratings[rowSums(is.na(ratings)) == 0, ]
+summary(ratings)
+
+```
+
+# Preparing the data
+
+Before performing clustering on the dataset, which variable(s) should be removed? 
+
+Ans: user ID
+
+Remove the necessary column from the dataset and rename the new data frame points.
+
+Now, we will normalize the data.
+
+What will the maximum value of pubs be after applying mean-var normalization? Answer without actually normalizing the data.
+
+```{r}
+
+points <- ratings[-1]
+summary(points)
+
+# Normalizing the data
+library(caret)
+preproc <- preProcess(points)
+pointsnorm <-  predict(preproc, points)
+summary(pointsnorm)
+```
+
+# Clustering
+
+Create a dendogram using the following code:
+
+distances = dist(pointsnorm, method = "euclidean")
+
+dend = hclust(distances, method = "ward.D")
+
+plot(dend, labels = FALSE)
+
+Based on the dendrogram, how many clusters do you think would NOT be appropriate for this problem?
+
+```{r}
+
+distances <- dist(pointsnorm, method = "euclidean")
+
+dend <- hclust(distances, method = "ward.D")
+
+plot(dend, labels = FALSE)
+
+```
+
+Ans: 5
+
+Based on this dendogram, in choosing the number of clusters, what is the best option? 
+
+Ans: 4
+
+# Clustering 2
+
+Set the random seed to 100, and run the k-means clustering algorithm on your normalized dataset, setting the number of clusters to 4.
+
+How many observations are in the largest cluster?
+
+```{r}
+set.seed(100)
+# Ignore this rm(ratingsCluster)
+
+# kmeans clustering, k = 4
+kmc_ratings <- kmeans(pointsnorm, centers = 4)
+
+#creating subset
+KmeansCluster1 <-  subset(pointsnorm, kmc_ratings$cluster == 1)
+KmeansCluster2 <-  subset(pointsnorm, kmc_ratings$cluster == 2)
+KmeansCluster3 <-  subset(pointsnorm, kmc_ratings$cluster == 3)
+KmeansCluster4 <-  subset(pointsnorm, kmc_ratings$cluster == 4)
+```
+
+# Conceptual Questions
+
+1) True or False: If we ran k-means clustering a second time without making any additional calls to set.seed, we would expect every observation to be in the same cluster as it is now.
+
+Ans: False
+
+2) True or False: K-means clustering is sensitive to outliers.
+
+Ans: True
+
+3) Why do we typically use cluster centroids to describe the clusters? 
+
+Ans: The cluster centroid captures the average behavior in the cluster, and can be used to summarize the general pattern in the cluster. 
+
+4) Is "overfitting" a problem in clustering? 
+
+Ans: Yes, at the extreme every data point can be assigned to its own cluster. 
+
+5) Is "multicollinearity" a problem in clustering? 
+
+Ans: Yes, multicollinearity could cause certain features to be overweighted in the distances calculations. 
+
+# Understanding the Clusters
+
+Which cluster has the user with the lowest average rating in restaurants?
+
+```{r}
+
+# Average rating
+tapply(ratings$restaurants, kmc_ratings$cluster, mean)
+
+# Ans: Cluster 4
+
+# Clusters who enjoy churches, pools, gyms, bakeries, and cafe
+tapply(ratings$churches, kmc_ratings$cluster, mean)
+tapply(ratings$pools, kmc_ratings$cluster, mean)
+tapply(ratings$bakeries, kmc_ratings$cluster, mean)
+tapply(ratings$cafes, kmc_ratings$cluster, mean)
+tapply(ratings$gyms, kmc_ratings$cluster, mean)
+
+# Ans: Cluster 4 again :)
+
+# Which cluster seems to enjoy being outside, but does not enjoy as much going to the zoo or pool?
+tapply(ratings$beaches, kmc_ratings$cluster, mean)
+tapply(ratings$resorts, kmc_ratings$cluster, mean)
+
+tapply(ratings$zoo, kmc_ratings$cluster, mean)
+tapply(ratings$pools, kmc_ratings$cluster, mean)
+```
+

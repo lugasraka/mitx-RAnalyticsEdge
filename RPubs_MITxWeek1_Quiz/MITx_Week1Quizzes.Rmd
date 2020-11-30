@@ -1,0 +1,519 @@
+---
+title: "MITxUnit1_Quizzes"
+author: "Raka"
+date: "9/21/2020"
+output: html_document
+---
+
+## Loading the Data
+
+Read the dataset mvtWeek1.csv into R, using the read.csv function, and call the data frame "mvt". Remember to navigate to the directory on your computer containing the file mvtWeek1.csv first. It may take a few minutes to read in the data, since it is pretty large. Then, use the str and summary functions to answer the following questions.
+
+How many rows of data (observations) are in this dataset?
+
+```{r loading}
+mvt <- read.csv("mvtWeek1.csv")
+str(mvt)
+```
+
+## Finding MAX and MIN
+
+Using the "max" function, what is the maximum value of the variable "ID"?
+What is the minimum value of the variable "Beat"?
+
+```{r max}
+max(mvt$ID)
+min(mvt$Beat)
+```
+
+## The number of observations
+
+How many observations have value TRUE in the Arrest variable (this is the number of crimes for which an arrest was made)?
+
+```{r arrest}
+summary(mvt$Arrest)
+```
+
+## LocalDescription of ALLEY
+
+How many observations have a LocationDescription value of ALLEY?
+
+```{r alley}
+alley_data <- subset(mvt, LocationDescription == "ALLEY")
+nrow(alley_data)
+
+```
+
+## Problem 2.1 - Understanding Dates in R
+
+In many datasets, like this one, you have a date field. Unfortunately, R does not automatically recognize entries that look like dates. We need to use a function in R to extract the date and time. Take a look at the first entry of Date (remember to use square brackets when looking at a certain entry of a variable).
+
+In what format are the entries in the variable Date?
+
+```{r date}
+mvt$Date
+```
+
+## Dates in R, part 2
+
+Now, let's convert these characters into a Date object in R. In your R console, type
+
+DateConvert = as.Date(strptime(mvt$Date, "%m/%d/%y %H:%M"))
+
+This converts the variable "Date" into a Date object in R. Take a look at the variable DateConvert using the summary function.
+
+What is the month and year of the median date in our dataset? Enter your answer as "Month Year", without the quotes. (Ex: if the answer was 2008-03-28, you would give the answer "March 2008", without the quotes.)
+
+```{r dates2}
+DateConvert <- as.Date(strptime(mvt$Date, "%m/%d/%y %H:%M"))
+median(DateConvert)
+```
+
+## Adding other variables Dates
+
+Now, let's extract the month and the day of the week, and add these variables to our data frame mvt. We can do this with two simple functions. Type the following commands in R:
+
+mvt$Month = months(DateConvert)
+
+mvt$Weekday = weekdays(DateConvert)
+
+This creates two new variables in our data frame, Month and Weekday, and sets them equal to the month and weekday values that we can extract from the Date object. Lastly, replace the old Date variable with DateConvert by typing:
+
+mvt$Date = DateConvert
+
+Using the table command, answer the following questions.
+
+In which month did the fewest motor vehicle thefts occur?
+
+```{r var2}
+mvt$Month = months(DateConvert)
+mvt$Weekday = weekdays(DateConvert)
+
+mvt$Date = DateConvert
+
+table(mvt$Month)
+table(mvt$Weekday)
+```
+
+## Problem 2.5 using and logic
+
+Each observation in the dataset represents a motor vehicle theft, and the Arrest variable indicates whether an arrest was later made for this theft. Which month has the largest number of motor vehicle thefts for which an arrest was made?
+
+```{r both}
+table(mvt$Month, mvt$Arrest)
+```
+
+## Problem 3.1 Visualizing
+
+Now, let's make some plots to help us better understand how crime has changed over time in Chicago. Throughout this problem, and in general, you can save your plot to a file. For more information, this website very clearly explains the process.
+
+First, let's make a histogram of the variable Date. We'll add an extra argument, to specify the number of bars we want in our histogram. In your R console, type
+
+hist(mvt$Date, breaks=100)
+
+Looking at the histogram, answer the following questions.
+
+In general, does it look like crime increases or decreases from 2002 - 2012?
+
+```{r viz1}
+hist(mvt$Date, breaks=100)
+
+```
+## Problem 3.2 Visuals
+
+Now, let's see how arrests have changed over time. Create a boxplot of the variable "Date", sorted by the variable "Arrest" (if you are not familiar with boxplots and would like to learn more, check out this tutorial). In a boxplot, the bold horizontal line is the median value of the data, the box shows the range of values between the first quartile and third quartile, and the whiskers (the dotted lines extending outside the box) show the minimum and maximum values, excluding any outliers (which are plotted as circles). Outliers are defined by first computing the difference between the first and third quartile values, or the height of the box. This number is called the Inter-Quartile Range (IQR). Any point that is greater than the third quartile plus the IQR or less than the first quartile minus the IQR is considered an outlier.
+
+Does it look like there were more crimes for which arrests were made in the first half of the time period or the second half of the time period? (Note that the time period is from 2001 to 2012, so the middle of the time period is the beginning of 2007.)
+
+```{r box}
+boxplot(mvt$Date ~ mvt$Arrest)
+```
+
+## Problem 3.3 Visualizing Trends
+
+Let's investigate this further. Use the table function for the next few questions.
+
+For what proportion of motor vehicle thefts in 2001 was an arrest made?
+
+Note: in this question and many others in the course, we are asking for an answer as a proportion. Therefore, your answer should take a value between 0 and 1.
+
+```{r trend}
+table(mvt$Year, mvt$Arrest)
+2152/(2152+18517) # Year 2001
+1212/(1212+13068) # Year 2007
+550/(550+13542) # Year 2012
+```
+
+## Problem 4.1 Popular Locations
+
+Analyzing this data could be useful to the Chicago Police Department when deciding where to allocate resources. If they want to increase the number of arrests that are made for motor vehicle thefts, where should they focus their efforts?
+
+We want to find the top five locations where motor vehicle thefts occur. If you create a table of the LocationDescription variable, it is unfortunately very hard to read since there are 78 different locations in the data set. By using the sort function, we can view this same table, but sorted by the number of observations in each category. In your R console, type:
+
+sort(table(mvt$LocationDescription))
+
+Which locations are the top five locations for motor vehicle thefts, excluding the "Other" category? You should select 5 of the following options.
+
+```{r pop}
+sort(table(mvt$LocationDescription),decreasing = TRUE)
+```
+
+## Problem 4.2 Popular locations
+
+Create a subset of your data, only taking observations for which the theft happened in one of these five locations, and call this new data set "Top5". To do this, you can use the | symbol. In lecture, we used the & symbol to use two criteria to make a subset of the data. To only take observations that have a certain value in one variable or the other, the | character can be used in place of the & symbol. This is also called a logical "or" operation.
+
+Alternately, you could create five different subsets, and then merge them together into one data frame using rbind.
+
+How many observations are in Top5?
+
+```{r top5}
+Top5 <- subset(mvt, LocationDescription == "STREET" | LocationDescription == "PARKING LOT/GARAGE(NON.RESID.)" |LocationDescription == "ALLEY" | LocationDescription == "GAS STATION" | LocationDescription == "DRIVEWAY - RESIDENTIAL")
+```
+
+## Problem 4.3 Popular locations again
+
+R will remember the other categories of the LocationDescription variable from the original dataset, so running table(Top5$LocationDescription) will have a lot of unnecessary output. To make our tables a bit nicer to read, we can refresh this factor variable. In your R console, type:
+
+Top5$LocationDescription = factor(Top5$LocationDescription)
+
+If you run the str or table function on Top5 now, you should see that LocationDescription now only has 5 values, as we expect.
+
+Use the Top5 data frame to answer the remaining questions.
+
+One of the locations has a much higher arrest rate than the other locations. Which is it? Please enter the text in exactly the same way as how it looks in the answer options for Problem 4.1
+
+```{r top5rev}
+
+Top5$LocationDescription <- factor(Top5$LocationDescription)
+str(Top5)
+summary(Top5$LocationDescription)
+TableArrest <- table(Top5$LocationDescription, Top5$Arrest)
+prop.table(TableArrest, 1)
+```
+
+## Problem 4.4 & 4.5 Pop Locations
+
+On which day of the week do the most motor vehicle thefts at gas stations happen?
+
+```{r popularday}
+table(Top5$Weekday, Top5$LocationDescription)
+```
+
+## Problem Stock Dynamics ##
+
+First things first, we read all the datasets required.
+
+```{r stocks}
+IBM <- read.csv('IBMStock.csv')
+GE <- read.csv('GEStock.csv')
+ProcterGamble <- read.csv("ProcterGambleStock.csv")
+CocaCola <- read.csv("CocaColaStock.csv")
+Boeing <- read.csv("BoeingStock.csv")
+
+```
+
+# Converting all the dates
+
+We want to ensure they're formatted correctly. The codes below transform the characters into dates
+
+```{r dates-convert}
+IBM$Date = as.Date(IBM$Date, "%m/%d/%y")
+
+GE$Date = as.Date(GE$Date, "%m/%d/%y")
+
+CocaCola$Date = as.Date(CocaCola$Date, "%m/%d/%y")
+
+ProcterGamble$Date = as.Date(ProcterGamble$Date, "%m/%d/%y")
+
+Boeing$Date = as.Date(Boeing$Date, "%m/%d/%y")
+```
+
+# Earliest years
+
+Simply using min function
+
+```{r earliest}
+
+min(IBM$Date)
+max(IBM$Date)
+
+```
+
+# Little xploratory
+
+Finding summary statistics for all companies
+
+```{r sumstats}
+summary(IBM$StockPrice)
+summary(Boeing$StockPrice)
+summary(CocaCola$StockPrice)
+summary(GE$StockPrice)
+summary(ProcterGamble$StockPrice)
+sd(ProcterGamble$StockPrice)
+```
+
+## Visualizing Stock Dynamics
+
+Using the plot function, Date on the x axis and Stock price on the y axis.
+Case: Cocacola and PnG.
+
+```{r dynmcs}
+plot(x = CocaCola$Date, y = CocaCola$StockPrice, type = "l", col = "red")
+lines(ProcterGamble$Date, ProcterGamble$StockPrice, col = "blue", lty = 2)
+abline(v=as.Date(c("2000-03-01")), lwd=2)
+```
+# Slicing stock dynamics between 1995 - 2005
+
+We try to only plot subsets of the dataset. See details below.
+
+```{r 1995-2005}
+
+plot(CocaCola$Date[301:432], CocaCola$StockPrice[301:432], type="l", col="red", ylim=c(0,210)) # and add the other 4
+lines(IBM$Date[301:432], IBM$StockPrice[301:432], type="l", col="blue", ylim=c(0,210))
+lines(ProcterGamble$Date[301:432], ProcterGamble$StockPrice[301:432], type="l", col="rosybrown", ylim=c(0,210), lty = 3, lwd = 2)
+lines(GE$Date[301:432], GE$StockPrice[301:432], type="l", col="black", ylim=c(0,210), lty = 5)
+lines(Boeing$Date[301:432], Boeing$StockPrice[301:432], type="l", col="purple", ylim=c(0,210), lty = 2)
+
+```
+## Monthly Trends
+
+Calculate the mean stock price of IBM and other companies, sorted by months.
+
+```{r months}
+tapply(IBM$StockPrice, months(IBM$Date), FUN = mean)
+#
+tapply(CocaCola$StockPrice, months(CocaCola$Date), FUN = mean)
+tapply(GE$StockPrice, months(GE$Date), FUN = mean)
+
+```
+
+## Case 3: Demographics and Employments in the USA
+
+Let's load and summarize the dataset.
+
+```{r csp}
+
+CPS <- read.csv("CPSData.csv")
+str(CPS)
+summary(CPS)
+
+CPS$Industry <- as.factor(CPS$Industry)
+summary(CPS)
+
+sort(table(CPS$State))
+
+# Proportion of US Citizens
+citizens <- table(CPS$Citizenship)
+citizens_tot <- citizens[1] + citizens[2]
+proportion_US <- citizens_tot/ nrow(CPS)
+```
+
+# Discovering the number of races
+
+Again, we dig around with table functions in R.
+
+```{r race}
+CPS$Race <- as.factor(CPS$Race)
+sort(table(CPS$Race, CPS$Hispanic))
+table(CPS$Race, CPS$Hispanic)
+str(CPS)
+summary(CPS)
+
+CPS2 <- as.data.frame(unclass(CPS), stringsAsFactors = TRUE)
+str(CPS2)
+summary(CPS2)
+```
+
+# Dealing with Missing Values
+
+We can use is.na to return vectors with boolean values.
+
+```{r missing}
+is.na(CPS2$Married)
+table(CPS$Region, is.na(CPS$Married))
+
+table(CPS$Sex, is.na(CPS$Married))
+table(CPS$Age, is.na(CPS$Married))
+table(CPS$Citizenship, is.na(CPS$Married))
+##
+
+table(CPS2$State, is.na(CPS2$MetroAreaCode))
+str(CPS2)
+
+##
+table(CPS2$Region, is.na(CPS2$MetroAreaCode))
+```
+
+## Using tapply to calcualte proportion
+
+Which state has a proportion of interviewees living in a non-metropolitan area closest to 30%?
+
+```{r tapp}
+tapply(X = is.na(CPS2$MetroAreaCode), INDEX = CPS2$State, FUN = mean)
+```
+
+## Calling other datasets
+
+Codes like MetroAreaCode and CountryOfBirthCode are a compact way to encode factor variables with text as their possible values, and they are therefore quite common in survey datasets. In fact, all but one of the variables in this dataset were actually stored by a numeric code in the original CPS datafile.
+
+```{r metrocountry}
+
+MetroAreaMap <- read.csv("MetroAreaCodes.csv")
+str(MetroAreaMap)
+CountryMap <- read.csv("CountryCodes.csv")
+str(CountryMap)
+```
+
+# Here comes the fun part: MERGE function
+
+To merge in the metropolitan areas, we want to connect the field MetroAreaCode from the CPS data frame with the field Code in MetroAreaMap. for those familiar with database terminology, this parameter makes the operation a left outer join instead of an inner join.
+
+```{r merge}
+
+CPS <- merge(CPS2, MetroAreaMap, by.x = "MetroAreaCode", by.y = "Code", all.x = TRUE)
+CPS <- as.data.frame(unclass(CPS), stringsAsFactors = TRUE)
+str(CPS)
+summary(CPS)
+
+which.max(table(CPS$MetroArea))
+
+```
+
+# Data integration
+
+Which metropolitan area has the highest proportion of interviewees of Hispanic ethnicity? Hint: Use tapply() with mean, as in the previous subproblem. Calling sort() on the output of tapply() could also be helpful here.
+
+```{r hispan}
+
+sort(tapply(CPS$Hispanic, INDEX = CPS$MetroArea, FUN = mean))
+
+# Problem 3.5
+sort(tapply(CPS$Race == "Asian", INDEX = CPS$MetroArea, FUN = mean))
+
+# Problem 3.6
+sort(tapply(CPS$Education == "No high school diploma", CPS$MetroArea, mean, na.rm = TRUE))
+```
+
+## Integrating country birth data
+
+```{r merge2}
+CPS <- merge(CPS, CountryMap , by.x = "CountryOfBirthCode", by.y = "Code", all.x = TRUE)
+CPS <- as.data.frame(unclass(CPS), stringsAsFactors = TRUE)
+str(CPS)
+summary(CPS)
+
+#
+sort(table(CPS$Country))
+
+#Problem 4.3
+table(CPS$MetroArea == "New York-Northern New Jersey-Long Island, NY-NJ-PA",
+      CPS$Country != "United States")
+
+sum(CPS$MetroArea == "New York-Northern New Jersey-Long Island, NY-NJ-PA", na.rm = TRUE)
+1668/5409
+
+# Problem 4.4
+sort(tapply(CPS$Country == "India", CPS$MetroArea, FUN = sum, na.rm = TRUE))
+
+sort(tapply(CPS$Country == "Brazil", CPS$MetroArea, FUN = sum, na.rm = TRUE), decreasing = TRUE)
+
+sort(tapply(CPS$Country == "Somalia", CPS$MetroArea, FUN = sum, na.rm = TRUE), decreasing = TRUE)
+```
+
+## OPTIONAL Problem sets (Internet Privacy)
+
+Using read.csv(), load the dataset from AnonymityPoll.csv into a data frame called poll and summarize it with the summary() and str() functions.
+
+How many people participated in the poll?
+
+```{r anon}
+
+Anon <- read.csv("AnonymityPoll.csv")
+summary(Anon)
+table(Anon$Smartphone)
+
+# Problem 1.3
+
+table(Anon$Region == "Midwest", Anon$State)
+table(Anon$Region == "South", Anon$State)
+```
+
+# Problem 2.1 Internet and Smartphone users
+
+As mentioned in the introduction to this problem, many of the response variables (Info.On.Internet, Worry.About.Info, Privacy.Importance, Anonymity.Possible, and Tried.Masking.Identity) were not collected if an interviewee does not use the Internet or a smartphone, meaning the variables will have missing values for these interviewees.
+
+How many interviewees reported not having used the Internet and not having used a smartphone?
+
+```{r intsmt}
+
+table(Anon$Internet.Use, Anon$Smartphone)
+summary(Anon)
+
+# subset
+
+limited <- subset(Anon, Internet.Use == 1 | Smartphone == 1)
+nrow(limited)
+```
+
+## Problem 3.1 Summarizing
+
+Which variables have missing values in the limited data frame? (Select all that apply.)
+
+```{r missd}
+str(limited)
+summary(limited)
+
+# Problem 3.2
+mean(limited$Info.On.Internet)
+table(limited$Info.On.Internet)
+
+# Problem 3.4
+table(limited$Worry.About.Info)
+prop.table(limited$Worry.About.Info)
+386/(404+386)
+
+# Problem 3.5
+table(limited$Anonymity.Possible)
+278/(278+475)
+
+# Problem 3.6
+table(limited$Tried.Masking.Identity)
+128/(128+656)
+
+# Problem 3.7
+table(limited$Privacy.Laws.Effective, limited$Privacy.Laws.Effective)
+(186/(186+541))
+```
+
+## Problem 4.1 Relating to Polling Results
+
+Often, we are interested in whether certain characteristics of interviewees (e.g. their age or political opinions) affect their opinions on the topic of the poll (in this case, opinions on privacy). In this section, we will investigate the relationship between the characteristics Age and Smartphone and outcome variables Info.On.Internet and Tried.Masking.Identity, again using the limited data frame we built in an earlier section of this problem.
+
+Build a histogram of the age of interviewees. What is the best represented age group in the population?
+
+```{r histo}
+
+hist(limited$Age)
+
+# Problem 4.2
+
+table(limited$Age, limited$Info.On.Internet)
+max(table(limited$Age, limited$Info.On.Internet))
+
+# Problem 4.3
+
+jitter(c(1,2,3,10))
+
+# Problem 4.4
+
+plot(x = jitter(limited$Age), y = jitter(limited$Info.On.Internet))
+
+# Problem 4.5
+
+tapply(X = limited$Info.On.Internet, INDEX = limited$Smartphone, FUN = mean)
+
+# Problem 4.6
+
+tapply(X = limited$Tried.Masking.Identity, INDEX = limited$Smartphone, FUN = mean, na.rm = TRUE)
+```
+

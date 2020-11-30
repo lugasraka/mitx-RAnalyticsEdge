@@ -1,0 +1,237 @@
+---
+title: "MITx-Exam"
+author: "Raka"
+date: "11/25/2020"
+output: html_document
+---
+
+## Exam 1: National Park Visits
+
+The U.S. National Parks System includes 417 areas including national parks, monuments, battlefields, military parks, historical parks, historical sites, lakeshores, seashores, recreation areas, scenic rivers and trails, and the White House (see map in Figure 1). Every year, hundreds of millions of recreational visitors come to the parks. What do we know about the parks that can affect the visitor counts? Can we forecast the monthly visits to a given park accurately? To derive insights and answer these questions, we take a look at the historical visits data and the parks information released by the National Parks Service (NPS). 
+- ParkName: The full name of the park.
+
+- ParkType: The type of the park. For this study we restrict ourselves to the following more frequently visited types: National Battlefield, National Historic Site, National Historical Park, National Memorial, National Monument, National Park, National Recreation Area, and National Seashore.
+
+- Region: The region of the park, including Alaska, Intermountain, Midwest, National Capital, Northeast, Pacific West, and Southeast.
+
+- State: The abbreviation of the state where the park resides.
+
+- Year, Month: the year and the month for the visits.
+
+- lat, long: Latitude and longitude of the park.
+
+- Cost: a simple extraction of the park's entrance fee. Some parks may have multiple levels of entrance fees (differ by transportation methods, age, military status, etc.); for this problem, we only extracted the first available cost information.
+
+- logVisits: Natural logarithm of the recreational visits (with one added to the visits to avoid taking logs of zero) to the park in the given year and month.
+
+- laglogVisits: the logVisits from last month.
+
+-laglogVisitsYear: the logVisits from last year.
+
+```{r}
+
+visits <- read.csv("parkvisits.csv")
+str(visits)
+
+visits2016jul <- subset(visits, Year == 2016 & Month == 7)
+table(visits2016jul$ParkType)
+```
+
+# The most number of visitors: Which park?
+
+```{r}
+
+visits2016jul[which.max(visits2016jul$logVisits),]
+
+```
+
+# Relationship between regions and visits
+
+Which region has the highest average log visits in July 2016?
+
+```{r}
+
+tapply(visits2016jul$logVisits, visits2016jul$Region, FUN = mean, na.rm = TRUE)
+
+```
+
+# Relationship between cost and visits
+
+What is the correlation between entrance fee (the variable cost) and the log visits in July 2016? 
+
+```{r}
+
+cor(visits2016jul$cost, visits2016jul$logVisits)
+
+```
+
+# Time series of plot of visits
+
+Let's now look at the time dimension of the data. Subset the original data (visits) to "Yellowstone NP" only and save as ys. Use the following code to plot the logVisits through the months between 2010 and 2016:
+
+ys_ts=ts(ys$logVisits,start=c(2010,1),freq=12)
+
+plot(ys_ts)
+
+What observations do you make?
+
+```{r}
+
+ys <- subset(visits, ParkName == "Yellowstone NP")
+
+ys_ts <- ts(ys$logVisits,start=c(2010,1),freq=12)
+plot(ys_ts)
+```
+
+# Missing values
+
+Note that there are some NA's in the data - you can run colSums(is.na(visits)) to see the summary.
+
+Why do we have NA's in the laglogVisits and laglogVisitsYear? These variables were created by lagging the log visits by a month or by a year.
+
+```{r}
+
+colSums(is.na(visits))
+
+
+# To deal with the missing values, we will simply remove the observations with the missing values first (there are more sophisticated ways to work with missing values, but for this purpose removing the observations is fine). Run the following:
+
+visits <- visits[rowSums(is.na(visits)) == 0, ]
+
+# How many observations are there in visits now?
+str(visits)
+
+```
+
+# Predicting Visits
+
+We are interested in predicting the log visits. Before doing the split, let's also make Month a factor variable by including the following:
+
+visits$Month = as.factor(visits$Month)
+
+Subset our dataset into a training and a testing set by splitting based on the year: training would contain 2010-2014 years of data, and testing would be 2015-2016 data.
+
+Let's build now a simple linear regression model "mod" using the training set to predict the log visits. As a first step, we only use the laglogVisits variable (log visits from last month).
+
+What's the coefficient of the laglogVisits variable?
+
+```{r}
+
+visits$Month <-  as.factor(visits$Month)
+str(visits)
+
+#Subsetting the data
+
+training_visits <- subset(visits, Year <= 2014)
+test_visits <- subset(visits, Year > 2014)
+
+# linear regression modelling
+
+mod <- lm(logVisits ~ laglogVisits, data = training_visits)
+summary(mod)
+
+# Prediction
+
+Predicted_visits <- predict(mod, newdata = test_visits)
+
+# out of sample R2
+SSE <- sum((test_visits$logVisits - Predicted_visits)^2)
+SST <- sum((test_visits$logVisits - mean(training_visits$logVisits))^2)
+R_sq <- 1 - SSE/SST
+R_sq
+
+```
+
+# Add new variables
+
+We see that the model achieves good predictive power already simply using the previous month's visits. To see if the other knowledge we have about the parks can improve the model, let's add these variables in a new model.
+
+The new model would have the following variables:
+
+laglogVisits, laglogVisitsYear, Year, Month, Region, ParkType, and cost
+
+Looking at the model summary, which of the following statements are correct (significance at 0.05 level)?
+
+```{r}
+
+mod2 <- lm(logVisits ~ laglogVisits + laglogVisitsYear + Year + Month + Region + ParkType + cost, data = training_visits)
+summary(mod2)
+
+```
+
+# Out of sample R2 - again 2nd time
+
+In the new model, what's the out-of-sample R2 in the testing set?
+
+```{r}
+
+Predicted_visits2 <- predict(mod2, newdata = test_visits)
+
+SSE2 <- sum((test_visits$logVisits - Predicted_visits2)^2)
+SST2 <- sum((test_visits$logVisits - mean(training_visits$logVisits))^2)
+R_sq2 <- 1 - SSE2/SST2
+R_sq2
+
+```
+
+# Regression trees with CV
+
+The out-of-sample R2 does not appear to be very good under regression trees, compared to a linear regression model. We could potentially improve it via cross validation.
+
+Set seed to 201, run a 10-fold cross-validated cart model, with cp ranging from 0.0001 to 0.005 in increments of 0.0001. What is optimal cp value on this grid?
+
+```{r}
+library(caret)
+set.seed(201)
+
+numFolds <- trainControl(method = "cv", number = 10)
+cartGrid <- expand.grid( .cp = seq(0.0001,0.005,0.0001)) 
+
+train(logVisits ~ laglogVisits + laglogVisitsYear + Year + Month + Region + ParkType + cost, data = training_visits, method = "rpart", trControl = numFolds, tuneGrid = cartGrid)
+```
+
+# Final regression Tree
+
+Rerun the regression tree on the training data, now using the cp value equal to the one selected in the previous problem (under the original range). Note: do not get the tree from the cross-validation directly.
+
+What is the out-of-sample R2 in the testing set?
+
+```{r}
+library(rpart)
+
+set.seed(201)
+
+Final_tree <- rpart(logVisits ~ laglogVisits + laglogVisitsYear + Year + Month + Region + ParkType + cost, data = training_visits, cp = 1e-4)
+pred_FinTree <- predict(Final_tree, newdata = test_visits)
+
+# out of sample R2
+
+SSE3 <- sum((test_visits$logVisits - pred_FinTree)^2)
+SST3 <- sum((test_visits$logVisits - mean(training_visits$logVisits))^2)
+R_sq3 <- 1 - SSE3/SST3
+R_sq3
+```
+
+# Random Forest
+
+We can potentially further improve the models by using a random forest. Set seed to 201 again. Train a random forest model with the same set of covariates, and using just default parameters (no need to specify). This may take a few minutes.
+
+What is the R2 on the testing set for the random forest model?
+
+```{r}
+library(randomForest)
+set.seed(201)
+
+# Building the model and run predictions
+RForest_visits <- randomForest(logVisits ~ laglogVisits + laglogVisitsYear + Year + Month + Region + ParkType + cost, data=training_visits)
+Pred_RforestB <- predict(RForest_visits, newdata = test_visits)
+
+# out of sample R2
+
+SSE4 <- sum((test_visits$logVisits - Pred_RforestB)^2)
+SST4 <- sum((test_visits$logVisits - mean(training_visits$logVisits))^2)
+R_sq4 <- 1 - SSE4/SST4
+R_sq4
+
+## DONE PART 1 =)
+```
